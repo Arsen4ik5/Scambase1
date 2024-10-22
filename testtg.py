@@ -2,12 +2,12 @@
 import telebot
 import random
 
-API_TOKEN = 'YOUR_API_TOKEN'  # Замените на токен вашего бота
+API_TOKEN = '7849780225:AAH5DUyAubUmpLPFVEvv0vfD3IDbPHgDJ9c'  # Замените на токен вашего бота
 bot = telebot.TeleBot(API_TOKEN)
 
 # Глобальные переменные
 reports = {}
-admins = {7451036519}  # ID создателя бота
+admins = {6321157988}  # ID создателя бота
 guarantees = {}
 scammers = set()
 
