@@ -1,106 +1,148 @@
+
 import logging
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
+import random
+from aiogram import Bot, Dispatcher, types
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.utils import executor
 
-# Включаем логирование
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+API_TOKEN = 'YOUR_API_TOKEN'  # Замените на токен вашего бота
+ADMIN_ID = 7451036519  # ID создателя бота
 
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-# Словарь для хранения жалоб
+bot = Bot(token=API_TOKEN)
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
+
 reports = {}
-# Словарь для хранения администраторов
-admins = {}
-# Словарь для хранения статусов пользователей
-user_statuses = {}
+admins = {ADMIN_ID}
+guarantees = {}
+scammers = set()
 
-# ID создателя (администратора)
-CREATOR_ID = 7451036519
+@dp.message_handler(commands=['start', 'help'])
+async def send_welcome(message: types.Message):
+    await message.reply("Используйте следующие команды:\n"
+                        "/report (юзерID) (причина) - Подать жалобу\n"
+                        "/acceptreport (номер) (ранг) - Принять жалобу\n"
+                        "/addadm (юзерID/username) - Добавить админа\n"
+                        "/check (юзерID/username) - Проверить репутацию\n"
+                        "/checkmy - Проверить свой статус\n"
+                        "/addgarant (юзерID/username) - Сделать гарантом")
 
-def start(update: Update, context: CallbackContext) -> None:
-    update.message.reply_text('Привет! Я бот для жалоб.')
-
-def report(update: Update, context: CallbackContext) -> None:
-    if len(context.args) < 2:
-        update.message.reply_text('Используйте: /report (юзер) (причина)')
-        return
-    user = context.args[0]
-    reason = ' '.join(context.args[1:])
-    report_number = len(reports) + 1
-    reports[report_number] = {'user': user, 'reason': reason}
-    update.message.reply_text(f'Жалоба на {user} принята. Номер жалобы: {report_number}')
-
-def accept_report(update: Update, context: CallbackContext) -> None:
-    if len(context.args) < 1:
-        update.message.reply_text('Используйте: /acceptreport (номер)')
-        return
-    report_number = int(context.args[0])
-    if report_number in reports:
-        report = reports.pop(report_number)
-        update.message.reply_text(f'Жалоба на {report["user"]} принята!\nПричина: {report["reason"]}')
+def get_user_id(param: str):
+    """Получение ID пользователя по username или через прямой ID."""
+    if param.isdigit():
+        return int(param)
     else:
-        update.message.reply_text('Нет такой жалобы.')
+        user = bot.get_user(param)  # Эта часть должна уточнять как получить ID по username
+        return user.id if user else None
 
-def add_admin(update: Update, context: CallbackContext) -> None:
-    if update.message.from_user.id != CREATOR_ID:
-        update.message.reply_text('Вы не имеете прав для добавления администраторов.')
+@dp.message_handler(commands=['report'])
+async def cmd_report(message: types.Message):
+    args = message.get_args().split()
+    if len(args) < 2:
+        await message.reply("Используйте: /report (юзерID/username) (причина)")
         return
-    
-    if len(context.args) < 1:
-        update.message.reply_text('Используйте: /addadm (юзер_id)')
+    reported_user_id = get_user_id(args[0])
+    if reported_user_id is None:
+        await message.reply("Некорректный ID или username.")
         return
-    user_id = int(context.args[0])
-    admins[user_id] = True
-    update.message.reply_text(f'Администратор с ID {user_id} добавлен.')
+    reason = ' '.join(args[1:])
+    report_id = random.randint(10000, 99999)
+    reports[report_id] = {'user_id': reported_user_id, 'status': 'pending', 'reason': reason, 'rank': None}
+    await message.reply(f'Ваша жалоба подана. Номер жалобы: {report_id}')
 
-def check(update: Update, context: CallbackContext) -> None:
-    if len(context.args) < 1:
-        update.message.reply_text('Используйте: /check (юзер)')
+@dp.message_handler(commands=['acceptreport'])
+async def cmd_accept_report(message: types.Message):
+    if message.from_user.id not in admins:
+        await message.reply('У вас нет прав для выполнения этой команды.')
         return
-    user = context.args[0]
-    status = user_statuses.get(user, 'нету в базе')
-    percentage = 0  # Здесь можно добавить логику для расчета процента обмана
-    rank = "незначительный"  # Здесь можно установить логику для рангов
-
-    update.message.reply_text(
-        f"🔎Результат поиска:\n
-"
-        f"🔥Репутация: {percentage}%\n"
-        f"🆔Айди: {user}\n"
-        f"🧐Юзер: {user}\n"
-        f"Ранг: {rank}"
-    )
-
-def check_my(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
-    status = user_statuses.get(user_id, 'нету в базе')
-    update.message.reply_text(f"Статус пользователя: {status}")
-
-def add_garant(update: Update, context: CallbackContext) -> None:
-    if len(context.args) < 1:
-        update.message.reply_text('Используйте: /addgarant (юзер)')
+    args = message.get_args().split()
+    if len(args) < 2:
+        await message.reply('Укажите номер жалобы и ранг (скамер, петух, гарант).')
         return
-    user = context.args[0]
-    user_statuses[user] = 'гарант'
-    update.message.reply_text(f'Пользователь {user} теперь гарант.')
+    try:
+        report_id = int(args[0])
+        rank = args[1].lower()
+    except ValueError:
+        await message.reply('Некорректный ввод. Убедитесь, что номер жалобы — это число.')
+        return
+    if report_id in reports:
+        reports[report_id]['status'] = 'accepted'
+        reports[report_id]['rank'] = rank
+        if rank == 'скамер':
+            scammers.add(reports[report_id]['user_id'])
+        elif rank == 'гарант':
+            guarantees[reports[report_id]['user_id']] = True
+        await message.reply(f'Жалоба {report_id} принята. Ранг установлен: {rank}.')
+    else:
+        await message.reply('Такой жалобы не существует.')
 
-def main() -> None:
-    # Вставьте свой токен
-    updater = Updater("YOUR_TOKEN")
+@dp.message_handler(commands=['addadm'])
+async def cmd_add_admin(message: types.Message):
+    if message.from_user.id not in admins:
+        await message.reply('У вас нет прав для выполнения этой команды.')
+        return
+    args = message.get_args().split()
+    if len(args) < 1:
+        await message.reply('Укажите ID пользователя или username для добавления в администраторы.')
+        return
+    new_admin = get_user_id(args[0])
+    if new_admin is None:
+        await message.reply('Некорректный ID или username.')
+        return
+    admins.add(new_admin)
+    await message.reply(f'Пользователь {new_admin} добавлен как администратор.')
 
-    dispatcher = updater.dispatcher
+@dp.message_handler(commands=['check'])
+async def cmd_check(message: types.Message):
+    args = message.get_args().split()
+    if len(args) < 1:
+        await message.reply('Укажите ID пользователя или username для проверки.')
+        return
+    check_user_id = get_user_id(args[0])
+    if check_user_id is None:
+        await message.reply('Некорректный ID или username.')
+        return
+    rank = 'петух'
+    if check_user_id in scammers:
+        rank = 'скамер'
+    elif check_user_id in guarantees:
+        rank = 'гарант'
+    # Получаем username
+    username = await get_username(check_user_id)
+    await message.reply(f"🔎Результат поиска:\n\n🔥Репутация: {rank}\n\n🆔Айди: {check_user_id}\n🧐Юзер: @{username}")
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("report", report))
-    dispatcher.add_handler(CommandHandler("acceptreport", accept_report))
-    dispatcher.add_handler(CommandHandler("addadm", add_admin))
-    dispatcher.add_handler(CommandHandler("check", check))
-    dispatcher.add_handler(CommandHandler("checkmy", check_my))
-    dispatcher.add_handler(CommandHandler("addgarant", add_garant))
+async def get_username(user_id):
+    try:
+        user = await bot.get_chat(user_id)
+        return user.username if user.username else "Нет юзернейма"
+    except:
+        return "Нет юзернейма"
 
-    updater.start_polling()
-    updater.idle()
+@dp.message_handler(commands=['checkmy'])
+async def cmd_check_my_status(message: types.Message):
+    user_id = message.from_user.id
+    rank = 'Нету в базе'
+    if user_id in scammers:
+        rank = 'скамер'
+    elif user_id in guarantees:
+        rank = 'гарант'
+    username = await get_username(user_id)
+    await message.reply(f"🔎Результат поиска:\n\n🔥Репутация: {rank}\n\n🆔Айди: {user_id}\n🧐Юзер: @{username}")
+
+@dp.message_handler(commands=['addgarant'])
+async def cmd_add_garant(message: types.Message):
+    args = message.get_args().split()
+    if len(args) < 1:
+        await message.reply('Укажите ID пользователя или username для добавления в гарант.')
+        return
+    garant_id = get_user_id(args[0])
+    if garant_id is None:
+        await message.reply('Некорректный ID или username.')
+        return
+    guarantees[garant_id] = True
+    await message.reply(f'Пользователь {garant_id} добавлен как гарант.')
 
 if __name__ == '__main__':
-    main()
+    executor.start_polling(dp, skip_updates=True)
