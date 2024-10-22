@@ -5,8 +5,8 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.utils import executor
 
-API_TOKEN = 'YOUR_API_TOKEN'  # Замените на токен вашего бота
-ADMIN_ID = 7451036519  # ID создателя бота
+API_TOKEN = '7849780225:AAH5DUyAubUmpLPFVEvv0vfD3IDbPHgDJ9c'  # Замените на токен вашего бота
+ADMIN_ID = 6321157988  # ID создателя бота
 
 logging.basicConfig(level=logging.INFO)
 
