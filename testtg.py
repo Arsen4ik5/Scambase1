@@ -1,134 +1,106 @@
+import logging
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, CallbackContext
 
-import telebot
-import random
+# Включаем логирование
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
 
-API_TOKEN = '7849780225:AAH5DUyAubUmpLPFVEvv0vfD3IDbPHgDJ9c'  # Замените на токен вашего бота
-bot = telebot.TeleBot(API_TOKEN)
+logger = logging.getLogger(__name__)
 
-# Глобальные переменные
+# Словарь для хранения жалоб
 reports = {}
-admins = {6321157988}  # ID создателя бота
-guarantees = {}  # Гаранты
-scammers = set()  # Мошенники
+# Словарь для хранения администраторов
+admins = {}
+# Словарь для хранения статусов пользователей
+user_statuses = {}
 
-# Команда /report для подачи жалобы
-@bot.message_handler(commands=['report'])
-def report(message):
-    user_id = message.from_user.id
-    report_id = random.randint(10000, 99999)
-    reports[report_id] = {'user_id': user_id, 'status': 'pending', 'rank': None}
-    bot.send_message(message.chat.id, f'Ваша жалоба подана. Номер жалобы: {report_id}')
+# ID создателя (администратора)
+CREATOR_ID = 7451036519
 
-# Команда /acceptreport для принятия жалобы администратором
-@bot.message_handler(commands=['acceptreport'])
-def accept_report(message):
-    if message.from_user.id not in admins:
-        bot.send_message(message.chat.id, 'У вас нет прав для выполнения этой команды.')
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text('Привет! Я бот для жалоб.')
+
+def report(update: Update, context: CallbackContext) -> None:
+    if len(context.args) < 2:
+        update.message.reply_text('Используйте: /report (юзер) (причина)')
         return
+    user = context.args[0]
+    reason = ' '.join(context.args[1:])
+    report_number = len(reports) + 1
+    reports[report_number] = {'user': user, 'reason': reason}
+    update.message.reply_text(f'Жалоба на {user} принята. Номер жалобы: {report_number}')
 
-    args = message.text.split()
-    if len(args) < 3:
-        bot.send_message(message.chat.id, 'Укажите номер жалобы и ранг (скамер или гарант).')
+def accept_report(update: Update, context: CallbackContext) -> None:
+    if len(context.args) < 1:
+        update.message.reply_text('Используйте: /acceptreport (номер)')
         return
-
-    try:
-        report_id = int(args[1])
-        rank = args[2].lower()
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что номер жалобы — число.')
-        return
-
-    if report_id in reports:
-        reports[report_id]['status'] = 'accepted'
-        reports[report_id]['rank'] = rank
-
-        if rank == 'скамер':
-            scammers.add(reports[report_id]['user_id'])
-
-        bot.send_message(message.chat.id, f'Жалоба {report_id} принята. Ранг установлен: {rank}.')
+    report_number = int(context.args[0])
+    if report_number in reports:
+        report = reports.pop(report_number)
+        update.message.reply_text(f'Жалоба на {report["user"]} принята!\nПричина: {report["reason"]}')
     else:
-        bot.send_message(message.chat.id, 'Такой жалобы не существует.')
+        update.message.reply_text('Нет такой жалобы.')
 
-# Команда /addadm для добавления нового администратора
-@bot.message_handler(commands=['addadm'])
-def add_admin(message):
-    if message.from_user.id not in admins:
-        bot.send_message(message.chat.id, 'У вас нет прав для выполнения этой команды.')
+def add_admin(update: Update, context: CallbackContext) -> None:
+    if update.message.from_user.id != CREATOR_ID:
+        update.message.reply_text('Вы не имеете прав для добавления администраторов.')
         return
-
-    args = message.text.split()
-    if len(args) < 2:
-        bot.send_message(message.chat.id, 'Укажите ID пользователя для добавления в администраторы.')
+    
+    if len(context.args) < 1:
+        update.message.reply_text('Используйте: /addadm (юзер_id)')
         return
+    user_id = int(context.args[0])
+    admins[user_id] = True
+    update.message.reply_text(f'Администратор с ID {user_id} добавлен.')
 
-    try:
-        new_admin = int(args[1])
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что ID — это число.')
+def check(update: Update, context: CallbackContext) -> None:
+    if len(context.args) < 1:
+        update.message.reply_text('Используйте: /check (юзер)')
         return
+    user = context.args[0]
+    status = user_statuses.get(user, 'нету в базе')
+    percentage = 0  # Здесь можно добавить логику для расчета процента обмана
+    rank = "незначительный"  # Здесь можно установить логику для рангов
 
-    if new_admin not in admins:
-        admins.add(new_admin)
-        bot.send_message(message.chat.id, f'Пользователь {new_admin} добавлен как администратор.')
-    else:
-        bot.send_message(message.chat.id, 'Этот пользователь уже является администратором.')
+    update.message.reply_text(
+        f"🔎Результат поиска:\n
+"
+        f"🔥Репутация: {percentage}%\n"
+        f"🆔Айди: {user}\n"
+        f"🧐Юзер: {user}\n"
+        f"Ранг: {rank}"
+    )
 
-# Команда /check для проверки статуса пользователя
-@bot.message_handler(commands=['check'])
-def check_user(message):
-    args = message.text.split()
-    if len(args) < 2:
-        bot.send_message(message.chat.id, 'Укажите ID пользователя для проверки.')
+def check_my(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    status = user_statuses.get(user_id, 'нету в базе')
+    update.message.reply_text(f"Статус пользователя: {status}")
+
+def add_garant(update: Update, context: CallbackContext) -> None:
+    if len(context.args) < 1:
+        update.message.reply_text('Используйте: /addgarant (юзер)')
         return
+    user = context.args[0]
+    user_statuses[user] = 'гарант'
+    update.message.reply_text(f'Пользователь {user} теперь гарант.')
 
-    try:
-        user_id = int(args[1])
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что ID — это число.')
-        return
+def main() -> None:
+    # Вставьте свой токен
+    updater = Updater("YOUR_TOKEN")
 
-    if user_id in scammers:
-        rank = "скамер"
-    elif user_id in guarantees:
-        rank = "гарант"
-    else:
-        rank = "петух"
+    dispatcher = updater.dispatcher
 
-    bot.send_message(message.chat.id, f"🔎Результат поиска:\n\n🔥Репутация: {rank}\n\n🆔Айди: {user_id}\n🧐Юзер: @{user_id}")
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("report", report))
+    dispatcher.add_handler(CommandHandler("acceptreport", accept_report))
+    dispatcher.add_handler(CommandHandler("addadm", add_admin))
+    dispatcher.add_handler(CommandHandler("check", check))
+    dispatcher.add_handler(CommandHandler("checkmy", check_my))
+    dispatcher.add_handler(CommandHandler("addgarant", add_garant))
 
-# Команда /addgarant для добавления гаранта
-@bot.message_handler(commands=['addgarant'])
-def add_garant(message):
-    args = message.text.split()
-    if len(args) < 2:
-        bot.send_message(message.chat.id, 'Укажите ID пользователя для добавления в гарант.')
-        return
+    updater.start_polling()
+    updater.idle()
 
-    try:
-        garant_id = int(args[1])
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что ID — это число.')
-        return
-
-    if garant_id not in guarantees:
-        guarantees[garant_id] = True
-        bot.send_message(message.chat.id, f'Пользователь {garant_id} добавлен как гарант.')
-    else:
-        bot.send_message(message.chat.id, 'Этот пользователь уже в списке гарантов.')
-
-# Команда /checkmy для проверки своего статуса
-@bot.message_handler(commands=['checkmy'])
-def check_my_status(message):
-    user_id = message.from_user.id
-    if user_id in scammers:
-        rank = "скамер"
-    elif user_id in guarantees:
-        rank = "гарант"
-    else:
-        rank = "петух"
-
-    bot.send_message(message.chat.id, f"🔎Результат поиска:\n\n🔥Репутация: {rank}\n\n🆔Айди: {user_id}\n🧐Юзер: @{message.from_user.username}")
-
-# Запуск бота
 if __name__ == '__main__':
-    bot.polling(none_stop=True)
+    main()
