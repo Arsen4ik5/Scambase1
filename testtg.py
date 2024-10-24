@@ -191,6 +191,9 @@ def cmd_del_base(message):
 
 while True:
     try:
+    # Your code here
     bot.polling(none_stop=True)
-except Exception as e:  # Replace Exception with a more specific exception if possible
+except Exception as e:
+    # Handle exceptions here
     print(f"An error occurred: {e}")
+
