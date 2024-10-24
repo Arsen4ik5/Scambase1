@@ -126,8 +126,7 @@ def cmd_check(message):
     bot.reply_to(message, 
                   f"🔎Результат поиска:\n"
                   f"🔥Репутация: {rank}\n"
-                  f"🆔Айди: {check_user_id}\n"
-                  f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
+                  f"🆔Айди: {check_user_id}\n")
 
 @bot.message_handler(commands=['checkmy'])
 def cmd_check_my_status(message):
@@ -144,8 +143,7 @@ def cmd_check_my_status(message):
     bot.reply_to(message, 
                   f"🔎Результат поиска:\n"
                   f"🔥Репутация: {rank}\n"
-                  f"🆔Айди: {user_id}\n"
-                  f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
+                  f"🆔Айди: {user_id}\n  ")
 
 @bot.message_handler(commands=['addgarant'])
 def cmd_add_garant(message):
