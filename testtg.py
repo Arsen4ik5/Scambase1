@@ -3,7 +3,7 @@ import random
 import time
 import requests
 
-API_TOKEN = 'YOUR_API_TOKEN'  # Замените на токен вашего бота
+API_TOKEN = '7275319279:AAGZh_GzI4iO5Vsb3lcBsF0RLUq5Meh-yh8'  # Замените на токен вашего бота
 ADMIN_ID = 6321157988  # ID создателя бота
 
 bot = telebot.TeleBot(API_TOKEN)
