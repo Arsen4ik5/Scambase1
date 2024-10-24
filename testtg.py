@@ -190,10 +190,12 @@ def cmd_del_base(message):
 # Запуск бота с обработкой исключений
 
 while True:
-    try:
-    # Your code here
+     try:
+         
+    # Your code that may raise an exception goes here
     bot.polling(none_stop=True)
 except Exception as e:
-    # Handle exceptions here
+    # Handle the exception
     print(f"An error occurred: {e}")
+
 
