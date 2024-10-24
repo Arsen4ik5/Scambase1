@@ -191,7 +191,4 @@ def cmd_del_base(message):
 
 while True:
     try:
-        bot.polling(none_stop=True, timeout=60)
-    except Exception as e:
-        print(f"Ошибка сейчас бот перезапустится: {e}")
-        time.sleep(5)  # Задержка перед повторной попыткой 
+        bot.polling(none_stop=True) 
