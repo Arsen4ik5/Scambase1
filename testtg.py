@@ -3,7 +3,7 @@ import random
 import time
 import requests
 
-API_TOKEN = '7849780225:AAH5DUyAubUmpLPFVEvv0vfD3IDbPHgDJ9c'  # Замените на токен вашего бота
+API_TOKEN = 'YOUR_API_TOKEN'  # Замените на токен вашего бота
 ADMIN_ID = 6321157988  # ID создателя бота
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -30,7 +30,7 @@ def send_welcome(message):
                  "/addgarant (юзерID) - Сделать гарантом
 "
                  "/delbase (юзерID) (причина) - Удалить из базы") 
-                
+
 def get_user_id(param):
     """Получение ID пользователя по username или ID."""
     try:
@@ -130,8 +130,7 @@ def cmd_check(message):
     username = f"ID: {check_user_id}"  # Замените на логику для получения username
 
     bot.reply_to(message, 
-                  f"🔎Результат поиска:\n
-"
+                  f"🔎Результат поиска:\n"
                   f"🔥Репутация: {rank}\n"
                   f"🆔Айди: {check_user_id}\n"
                   f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
@@ -149,8 +148,7 @@ def cmd_check_my_status(message):
     username = f"ID: {user_id}"  # Замените на логику для получения username
 
     bot.reply_to(message, 
-                  f"🔎Результат поиска:\n
-"
+                  f"🔎Результат поиска:\n"
                   f"🔥Репутация: {rank}\n"
                   f"🆔Айди: {user_id}\n"
                   f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
@@ -197,8 +195,6 @@ def cmd_del_base(message):
 # Запуск бота с обработкой исключений
 while True:
     try:
-        # Your code that may raise an exception goes here
         bot.polling(none_stop=True)
     except Exception as e:
-        # Handle the exception
         print(f"An error occurred: {e}")
