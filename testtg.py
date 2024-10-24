@@ -29,8 +29,8 @@ def send_welcome(message):
 "
                  "/addgarant (юзерID) - Сделать гарантом
 "
-                 "/delbase (юзерID) (причина) - Удалить из базы")
-
+                 "/delbase (юзерID) (причина) - Удалить из базы") 
+                
 def get_user_id(param):
     """Получение ID пользователя по username или ID."""
     try:
