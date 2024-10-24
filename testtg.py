@@ -1,54 +1,75 @@
 
 import telebot
 import random
-from telebot import types
+import time
+import requests
 
 API_TOKEN = '7849780225:AAH5DUyAubUmpLPFVEvv0vfD3IDbPHgDJ9c'  # Замените на токен вашего бота
+ADMIN_ID = 6321157988  # ID создателя бота
+
 bot = telebot.TeleBot(API_TOKEN)
 
-# Глобальные переменные
 reports = {}
-admins = {6321157988}  # ID создателя бота
-guarantees = {}  # Гаранты
-scammers = set()  # Мошенники
+admins = {ADMIN_ID}
+guarantees = {}
+scammers = set()
 
-# Команда /report для подачи жалобы
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    bot.reply_to(message, 
+                 "Используйте следующие команды:\n"
+                 "/report (юзерID) (причина) - Подать жалобу\n"
+                 "/acceptreport (номер) (ранг) - Принять жалобу\n"
+                 "/addadm (юзерID) - Добавить админа\n"
+                 "/check (юзерID) - Проверить репутацию\n"
+                 "/checkmy - Проверить свой статус\n"
+                 "/addgarant (юзерID) - Сделать гарантом\n"
+                 "/delbase (юзерID) (причина) - Удалить из базы")
+
+def get_user_id(param):
+    """Получение ID пользователя по username или ID."""
+    try:
+        if param.isdigit():
+            return int(param)
+        else:
+            user = bot.get_chat(param)
+            return user.id if user else None
+    except Exception:
+        return None
+
 @bot.message_handler(commands=['report'])
-def report(message):
-    args = message.text.split()[1:]  # Получаем аргументы после команды
+def cmd_report(message):
+    args = message.text.split()[1:]
     if len(args) < 2:
-        bot.send_message(message.chat.id, 'Используйте: /report (юзер) (причина)')
+        bot.reply_to(message, "Используйте: /report (юзерID) (причина)")
         return
 
-    try:
-        user_id = int(args[0])  # ID пользователя, на которого подаётся жалоба
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ID. Убедитесь, что используете число.')
+    reported_user_id = get_user_id(args[0])
+    if reported_user_id is None:
+        bot.reply_to(message, "Некорректный ID или username.")
         return
 
-    reason = ' '.join(args[1:])  # Собираем причину из аргументов
-    report_id = random.randint(10000, 99999)  # Генерируем уникальный ID для жалобы
-    reports[report_id] = {'user_id': user_id, 'status': 'pending', 'reason': reason, 'rank': None}
+    reason = ' '.join(args[1:])
+    report_id = random.randint(10000, 99999)
+    reports[report_id] = {'user_id': reported_user_id, 'status': 'pending', 'reason': reason, 'rank': None}
+    bot.reply_to(message, f'Ваша жалоба подана. Номер жалобы: {report_id}')
 
-    bot.send_message(message.chat.id, f'Ваша жалоба подана. Номер жалобы: {report_id}')
-
-# Команда /acceptreport для принятия жалобы администратором
 @bot.message_handler(commands=['acceptreport'])
-def accept_report(message):
+def cmd_accept_report(message):
     if message.from_user.id not in admins:
-        bot.send_message(message.chat.id, 'У вас нет прав для выполнения этой команды.')
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
-    args = message.text.split()
-    if len(args) < 3:
-        bot.send_message(message.chat.id, 'Укажите номер жалобы и ранг (скамер, петух, гарант).')
+    args = message.text.split()[1:]
+    if len(args) < 2:
+        bot.reply_to(message, 'Укажите номер жалобы и ранг (скамер, петух, гарант).')
         return
 
     try:
-        report_id = int(args[1])
-        rank = args[2].lower()
+        report_id = int(args[0])
+        rank = args[1].lower()
     except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что номер жалобы — это число.')
+        bot.reply_to(message, 'Некорректный ввод. Убедитесь, что номер жалобы — это число.')
         return
 
     if report_id in reports:
@@ -57,95 +78,122 @@ def accept_report(message):
 
         if rank == 'скамер':
             scammers.add(reports[report_id]['user_id'])
-            bot.send_message(message.chat.id, f'Жалоба {report_id} принята. Ранг установлен: {rank}.')
         elif rank == 'гарант':
             guarantees[reports[report_id]['user_id']] = True
-            bot.send_message(message.chat.id, f'Пользователь {reports[report_id]["user_id"]} стал гарантом.')
-        else:
-            bot.send_message(message.chat.id, f'Жалоба {report_id} принята. Ранг установлен: {rank}.')
-    else:
-        bot.send_message(message.chat.id, 'Такой жалобы не существует.')
 
-# Команда /addadm для добавления нового администратора
+        bot.reply_to(message, f'Жалоба {report_id} принята. Ранг установлен: {rank}.')
+    else:
+        bot.reply_to(message, 'Такой жалобы не существует.')
+
 @bot.message_handler(commands=['addadm'])
-def add_admin(message):
+def cmd_add_admin(message):
     if message.from_user.id not in admins:
-        bot.send_message(message.chat.id, 'У вас нет прав для выполнения этой команды.')
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
     args = message.text.split()[1:]
     if len(args) < 1:
-        bot.send_message(message.chat.id, 'Укажите ID пользователя для добавления в администраторы.')
+        bot.reply_to(message, 'Укажите ID пользователя для добавления в администраторы.')
         return
 
-    try:
-        new_admin = int(args[0])
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что ID — это число.')
+    new_admin = get_user_id(args[0])
+    if new_admin is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
         return
 
-    if new_admin not in admins:
-        admins.add(new_admin)
-        bot.send_message(message.chat.id, f'Пользователь {new_admin} добавлен как администратор.')
-    else:
-        bot.send_message(message.chat.id, 'Этот пользователь уже является администратором.')
+    admins.add(new_admin)
+    bot.reply_to(message, f'Пользователь {new_admin} добавлен как администратор.')
 
-# Команда /check для проверки статуса пользователя
 @bot.message_handler(commands=['check'])
-def check_user(message):
+def cmd_check(message):
     args = message.text.split()[1:]
     if len(args) < 1:
-        bot.send_message(message.chat.id, 'Укажите ID пользователя для проверки.')
+        bot.reply_to(message, 'Укажите ID пользователя для проверки.')
         return
-
-    try:
-        user_id = int(args[0])
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что ID — это число.')
+    
+    check_user_id = get_user_id(args[0])
+    if check_user_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
         return
+    
+    rank = 'петух'
+    if check_user_id in scammers:
+        rank = 'скамер'
+    elif check_user_id in guarantees:
+        rank = 'гарант'
+    
+    username = f"ID: {check_user_id}"  # Замените на логику для получения username
 
-    if user_id in scammers:
-        rank = "скамер"
-    elif user_id in guarantees:
-        rank = "гарант"
-    else:
-        rank = "петух"  # Если не в списках, то петух
+    bot.reply_to(message, 
+                  f"🔎Результат поиска:\n\n"
+                  f"🔥Репутация: {rank}\n"
+                  f"🆔Айди: {check_user_id}\n"
+                  f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
 
-    bot.send_message(message.chat.id, f"🔎Результат поиска:\n\n🔥Репутация: {rank}\n\n🆔Айди: {user_id}\n🧐Юзер: @{user_id}")
-
-# Команда /addgarant для добавления гаранта
-@bot.message_handler(commands=['addgarant'])
-def add_garant(message):
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.send_message(message.chat.id, 'Укажите ID пользователя для добавления в гарант.')
-        return
-
-    try:
-        garant_id = int(args[0])
-    except ValueError:
-        bot.send_message(message.chat.id, 'Некорректный ввод. Убедитесь, что ID — это число.')
-        return
-
-    if garant_id not in guarantees:
-        guarantees[garant_id] = True
-        bot.send_message(message.chat.id, f'Пользователь {garant_id} добавлен как гарант.')
-    else:
-        bot.send_message(message.chat.id, 'Этот пользователь уже в списке гарантов.')
-
-# Команда /checkmy для проверки своего статуса
 @bot.message_handler(commands=['checkmy'])
-def check_my_status(message):
+def cmd_check_my_status(message):
     user_id = message.from_user.id
+    rank = 'Нету в базе'
+
     if user_id in scammers:
-        rank = "скамер"
+        rank = 'скамер'
     elif user_id in guarantees:
-        rank = "гарант"
-    else:
-        rank = "петух"  # Если не в списках, то петух
+        rank = 'гарант'
 
-    bot.send_message(message.chat.id, f"🔎Результат поиска:\n\n🔥Репутация: {rank}\n\n🆔Айди: {user_id}\n🧐Юзер: @{message.from_user.username}")
+    username = f"ID: {user_id}"  # Замените на логику для получения username
 
-# Запуск бота
-if __name__ == '__main__':
-    bot.polling(none_stop=True)
+    bot.reply_to(message, 
+                  f"🔎Результат поиска:\n\n"
+                  f"🔥Репутация: {rank}\n"
+                  f"🆔Айди: {user_id}\n"
+                  f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
+
+@bot.message_handler(commands=['addgarant'])
+def cmd_add_garant(message):
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для добавления в гарант.')
+        return
+
+    garant_id = get_user_id(args[0])
+    if garant_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    guarantees[garant_id] = True
+    bot.reply_to(message, f'Пользователь {garant_id} добавлен как гарант.')
+
+@bot.message_handler(commands=['delbase'])
+def cmd_del_base(message):
+    if message.from_user.id not in admins:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 2:
+        bot.reply_to(message, 'Используйте: /delbase (юзерID) (причина)')
+        return
+
+    del_user_id = get_user_id(args[0])
+    if del_user_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    # Удаление пользователя из базы (возврат статуса)
+    if del_user_id in scammers:
+        scammers.remove(del_user_id)
+    if del_user_id in guarantees:
+        guarantees.pop(del_user_id, None)
+
+    bot.reply_to(message, f'Пользователь {del_user_id} удален из базы. Причина: {" ".join(args[1:])}. Статус возвращен: Нету в базе.')
+
+# Запуск бота с обработкой исключений
+while True:
+    try:
+        bot.polling(none_stop=True)
+    except requests.exceptions.ConnectionError as e:
+        print(f"Connection error: {e}")
+        time.sleep(5)  # Подождите несколько секунд перед повторной попыткой
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        time.sleep(5)  # Подождите несколько секунд перед повторной попыткой
