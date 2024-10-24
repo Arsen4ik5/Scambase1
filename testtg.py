@@ -16,20 +16,14 @@ scammers = set()
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, 
-                 "Используйте следующие команды:\n"
-                 "/report (юзерID) (причина) - Подать жалобу
-"
-                 "/acceptreport (номер) (ранг) - Принять жалобу
-"
-                 "/addadm (юзерID) - Добавить админа
-"
-                 "/check (юзерID) - Проверить репутацию
-"
-                 "/checkmy - Проверить свой статус
-"
-                 "/addgarant (юзерID) - Сделать гарантом
-"
-                 "/delbase (юзерID) (причина) - Удалить из базы") 
+                 """Используйте следующие команды:
+                 /report (юзерID) (причина) - Подать жалобу
+                 /acceptreport (номер) (ранг) - Принять жалобу
+                 /addadm (юзерID) - Добавить админа
+                 /check (юзерID) - Проверить репутацию
+                 /checkmy - Проверить свой статус
+                 /addgarant (юзерID) - Сделать гарантом
+                 /delbase (юзерID) (причина) - Удалить из базы""")
 
 def get_user_id(param):
     """Получение ID пользователя по username или ID."""
