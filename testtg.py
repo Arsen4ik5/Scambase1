@@ -1,4 +1,3 @@
-
 import telebot
 import random
 import time
@@ -18,12 +17,18 @@ scammers = set()
 def send_welcome(message):
     bot.reply_to(message, 
                  "Используйте следующие команды:\n"
-                 "/report (юзерID) (причина) - Подать жалобу\n"
-                 "/acceptreport (номер) (ранг) - Принять жалобу\n"
-                 "/addadm (юзерID) - Добавить админа\n"
-                 "/check (юзерID) - Проверить репутацию\n"
-                 "/checkmy - Проверить свой статус\n"
-                 "/addgarant (юзерID) - Сделать гарантом\n"
+                 "/report (юзерID) (причина) - Подать жалобу
+"
+                 "/acceptreport (номер) (ранг) - Принять жалобу
+"
+                 "/addadm (юзерID) - Добавить админа
+"
+                 "/check (юзерID) - Проверить репутацию
+"
+                 "/checkmy - Проверить свой статус
+"
+                 "/addgarant (юзерID) - Сделать гарантом
+"
                  "/delbase (юзерID) (причина) - Удалить из базы")
 
 def get_user_id(param):
@@ -116,7 +121,7 @@ def cmd_check(message):
         bot.reply_to(message, 'Некорректный ID или username.')
         return
     
-    rank = 'петух'
+    rank = 'Нету в базе'
     if check_user_id in scammers:
         rank = 'скамер'
     elif check_user_id in guarantees:
@@ -125,7 +130,8 @@ def cmd_check(message):
     username = f"ID: {check_user_id}"  # Замените на логику для получения username
 
     bot.reply_to(message, 
-                  f"🔎Результат поиска:\n\n"
+                  f"🔎Результат поиска:\n
+"
                   f"🔥Репутация: {rank}\n"
                   f"🆔Айди: {check_user_id}\n"
                   f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
@@ -143,7 +149,8 @@ def cmd_check_my_status(message):
     username = f"ID: {user_id}"  # Замените на логику для получения username
 
     bot.reply_to(message, 
-                  f"🔎Результат поиска:\n\n"
+                  f"🔎Результат поиска:\n
+"
                   f"🔥Репутация: {rank}\n"
                   f"🆔Айди: {user_id}\n"
                   f"🧐Юзер: @{username if username else 'Нет юзернейма'}")
@@ -188,14 +195,10 @@ def cmd_del_base(message):
     bot.reply_to(message, f'Пользователь {del_user_id} удален из базы. Причина: {" ".join(args[1:])}. Статус возвращен: Нету в базе.')
 
 # Запуск бота с обработкой исключений
-
 while True:
-     try:
-         
-    # Your code that may raise an exception goes here
-    bot.polling(none_stop=True)
-except Exception as e:
-    # Handle the exception
-    print(f"An error occurred: {e}")
-
-
+    try:
+        # Your code that may raise an exception goes here
+        bot.polling(none_stop=True)
+    except Exception as e:
+        # Handle the exception
+        print(f"An error occurred: {e}")
