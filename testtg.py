@@ -188,12 +188,10 @@ def cmd_del_base(message):
     bot.reply_to(message, f'Пользователь {del_user_id} удален из базы. Причина: {" ".join(args[1:])}. Статус возвращен: Нету в базе.')
 
 # Запуск бота с обработкой исключений
+
 while True:
     try:
-        bot.polling(none_stop=True)
-    except requests.exceptions.ConnectionError as e:
-        print(f"Connection error: {e}")
-        time.sleep(5)  # Подождите несколько секунд перед повторной попыткой
+        bot.polling(none_stop=True, timeout=60)
     except Exception as e:
-        print(f"An error occurred: {e}")
-        time.sleep(5)  # Подождите несколько секунд перед повторной попыткой
+        print(f"Ошибка сейчас бот перезапустится: {e}")
+        time.sleep(5)  # Задержка перед повторной попыткой 
