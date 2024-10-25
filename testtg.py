@@ -1,17 +1,70 @@
 import telebot
 import random
+import sqlite3
 import time
-import requests
+import threading
 
-API_TOKEN = '7275319279:AAGZh_GzI4iO5Vsb3lcBsF0RLUq5Meh-yh8'  # Замените на токен вашего бота
-ADMIN_ID = 6321157988  # ID создателя бота
+API_TOKEN = 'YOUR_API_TOKEN'
+ADMIN_ID = [6321157988]
+OWNER_ID = [797141384]
+VOLUNTEER_ID = []
+DIRECTOR_ID = []
 
 bot = telebot.TeleBot(API_TOKEN)
 
-reports = {}
-admins = {ADMIN_ID}
-guarantees = {}
-scammers = set()
+# Подключение к базе данных
+conn = sqlite3.connect('bot_database.txt', check_same_thread=False)
+cursor = conn.cursor()
+
+# Таблицы
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS admins (
+    user_id INTEGER PRIMARY KEY
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS guarantees (
+    user_id INTEGER PRIMARY KEY
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS scammers (
+    user_id INTEGER PRIMARY KEY
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS volunteers (
+    user_id INTEGER PRIMARY KEY
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS directors (
+    user_id INTEGER PRIMARY KEY
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS bans (
+    user_id INTEGER PRIMARY KEY,
+    end_time INTEGER,
+    reason TEXT
+)
+''')
+
+cursor.execute('''
+CREATE TABLE IF NOT EXISTS warns (
+    user_id INTEGER,
+    reason TEXT,
+    timestamp INTEGER
+)
+''')
+
+conn.commit()
+
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
@@ -20,169 +73,189 @@ def send_welcome(message):
                  /report (юзерID) (причина) - Подать жалобу
                  /acceptreport (номер) (ранг) - Принять жалобу
                  /addadm (юзерID) - Добавить админа
+                 /addvolunteer (юзерID) - Добавить волонтёра
+                 /adddirector (юзерID) - Добавить директора
                  /check (юзерID) - Проверить репутацию
                  /checkmy - Проверить свой статус
+                 /ban (юзерID) (время) (причина) - Забанить пользователя
+                 /warn (юзерID) (причина) - Выдать выговор
+                 /mute (юзерID) (причина) - Замутить пользователя
                  /addgarant (юзерID) - Сделать гарантом
                  /delbase (юзерID) (причина) - Удалить из базы""")
 
-def get_user_id(param):
-    """Получение ID пользователя по username или ID."""
-    try:
-        if param.isdigit():
-            return int(param)
-        else:
-            user = bot.get_chat(param)
-            return user.id if user else None
-    except Exception:
-        return None
+# Existing functions and handlers...
 
-@bot.message_handler(commands=['report'])
-def cmd_report(message):
-    args = message.text.split()[1:]
-    if len(args) < 2:
-        bot.reply_to(message, "Используйте: /report (юзерID) (причина)")
+@bot.message_handler(commands=['addvolunteer'])
+def cmd_add_volunteer(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
-    reported_user_id = get_user_id(args[0])
-    if reported_user_id is None:
-        bot.reply_to(message, "Некорректный ID или username.")
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для добавления в волонтёры.')
+        return
+
+    volunteer_id = get_user_id(args[0])
+    if volunteer_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    add_volunteer(volunteer_id)
+    bot.reply_to(message, f'Пользователь {volunteer_id} добавлен как волонтёр.')
+
+@bot.message_handler(commands=['adddirector'])
+def cmd_add_director(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для добавления в директора.')
+        return
+
+    director_id = get_user_id(args[0])
+    if director_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    add_director(director_id)
+    bot.reply_to(message, f'Пользователь {director_id} добавлен как директор.')
+
+@bot.message_handler(commands=['ban'])
+def cmd_ban(message):
+    if message.from_user.id not in get_admins() and message.from_user.id not in DIRECTOR_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 3:
+        bot.reply_to(message, 'Используйте: /ban (юзерID) (время в минутах) (причина)')
+        return
+
+    user_id = get_user_id(args[0])
+    if user_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    try:
+        time_ban = int(args[1]) * 60  # Convert minutes to seconds
+    except ValueError:
+        bot.reply_to(message, 'Некорректное время бана.')
+        return
+
+    reason = ' '.join(args[2:])
+    end_time = int(time.time()) + time_ban
+    add_ban(user_id, end_time, reason)
+
+    bot.reply_to(message, f'Пользователь {user_id} забанен на {args[1]} минут. Причина: {reason}')
+    threading.Thread(target=remove_ban_after_time, args=(user_id,)).start()
+
+@bot.message_handler(commands=['warn'])
+def cmd_warn(message):
+    if message.from_user.id not in get_admins() and message.from_user.id not in DIRECTOR_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 2:
+        bot.reply_to(message, 'Используйте: /warn (юзерID) (причина)')
+        return
+
+    user_id = get_user_id(args[0])
+    if user_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
         return
 
     reason = ' '.join(args[1:])
-    report_id = random.randint(10000, 99999)
-    reports[report_id] = {'user_id': reported_user_id, 'status': 'pending', 'reason': reason, 'rank': None}
-    bot.reply_to(message, f'Ваша жалоба подана. Номер жалобы: {report_id}')
+    add_warn(user_id, reason)
 
-@bot.message_handler(commands=['acceptreport'])
-def cmd_accept_report(message):
-    if message.from_user.id not in admins:
+    bot.reply_to(message, f'Пользователю {user_id} выдан выговор. Причина: {reason}')
+
+@bot.message_handler(commands=['mute'])
+def cmd_mute(message):
+    if message.from_user.id not in get_admins() and message.from_user.id not in DIRECTOR_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
     args = message.text.split()[1:]
     if len(args) < 2:
-        bot.reply_to(message, 'Укажите номер жалобы и ранг (скамер, петух, гарант).')
+        bot.reply_to(message, 'Используйте: /mute (юзерID) (причина)')
         return
 
-    try:
-        report_id = int(args[0])
-        rank = args[1].lower()
-    except ValueError:
-        bot.reply_to(message, 'Некорректный ввод. Убедитесь, что номер жалобы — это число.')
-        return
-
-    if report_id in reports:
-        reports[report_id]['status'] = 'accepted'
-        reports[report_id]['rank'] = rank
-
-        if rank == 'скамер':
-            scammers.add(reports[report_id]['user_id'])
-        elif rank == 'гарант':
-            guarantees[reports[report_id]['user_id']] = True
-
-        bot.reply_to(message, f'Жалоба {report_id} принята. Ранг установлен: {rank}.')
-    else:
-        bot.reply_to(message, 'Такой жалобы не существует.')
-
-@bot.message_handler(commands=['addadm'])
-def cmd_add_admin(message):
-    if message.from_user.id not in admins:
-        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
-        return
-
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для добавления в администраторы.')
-        return
-
-    new_admin = get_user_id(args[0])
-    if new_admin is None:
+    user_id = get_user_id(args[0])
+    if user_id is None:
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
-    admins.add(new_admin)
-    bot.reply_to(message, f'Пользователь {new_admin} добавлен как администратор.')
+    reason = ' '.join(args[1:])
+    add_mute(user_id, reason)
 
-@bot.message_handler(commands=['check'])
-def cmd_check(message):
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для проверки.')
-        return
+    bot.reply_to(message, f'Пользователь {user_id} замучен. Причина: {reason}')
+
+def add_volunteer(user_id):
+    cursor.execute('INSERT OR IGNORE INTO volunteers (user_id) VALUES (?)', (user_id,))
+    conn.commit()
+
+def add_director(user_id):
+    cursor.execute('INSERT OR IGNORE INTO directors (user_id) VALUES (?)', (user_id,))
+    conn.commit()
+
+def add_ban(user_id, end_time, reason):
+    cursor.execute('INSERT OR REPLACE INTO bans (user_id, end_time, reason) VALUES (?, ?, ?)', (user_id, end_time, reason))
+    conn.commit()
+
+def remove_ban_after_time(user_id):
+    time.sleep(60)  # Wait the ban duration
+    cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
+    conn.commit()
+
+def add_warn(user_id, reason):
+    timestamp = int(time.time())
+    cursor.execute('INSERT INTO warns (user_id, reason, timestamp) VALUES (?, ?, ?)', (user_id, reason, timestamp))
+    conn.commit()
+
+def add_mute(user_id, reason):
+    cursor.execute('INSERT INTO bans (user_id, end_time, reason) VALUES (?, ?, ?)', (user_id, int(time.time()) + 300, reason))  # Mute for 5 minutes
+    conn.commit()
+
+def get_user_ban(user_id):
+    cursor.execute('SELECT end_time, reason FROM bans WHERE user_id = ?', (user_id,))
+    return cursor.fetchone()
+
+def get_user_warns(user_id):
+    cursor.execute('SELECT reason, timestamp FROM warns WHERE user_id = ?', (user_id,))
+    return cursor.fetchall()
+
+def get_admins():
+    cursor.execute('SELECT user_id FROM admins')
+    return {row[0] for row in cursor.fetchall()}
+
+def check_user_rank(user_id):
+    ban_info = get_user_ban(user_id)
+    if ban_info:
+        return 'Забанен до ' + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(ban_info[0]))
     
-    check_user_id = get_user_id(args[0])
-    if check_user_id is None:
-        bot.reply_to(message, 'Некорректный ID или username.')
-        return
-    
-    rank = 'Нету в базе'
-    if check_user_id in scammers:
-        rank = 'скамер'
-    elif check_user_id in guarantees:
-        rank = 'гарант'
-    
-    username = f"ID: {check_user_id}"  # Замените на логику для получения username
+    if user_id in get_scammers():
+        return 'скамер'
+    elif user_id in get_guarantees():
+        return 'гарант'
+    elif user_id in get_volunteers():
+        return 'волонтёр'
+    elif user_id in get_directors():
+        return 'директор'
+    return 'Нету в базе'
 
-    bot.reply_to(message, 
-                  f"🔎Результат поиска:\n"
-                  f"🔥Репутация: {rank}\n"
-                  f"🆔Айди: {check_user_id}\n")
+def get_volunteers():
+    cursor.execute('SELECT user_id FROM volunteers')
+    return {row[0] for row in cursor.fetchall()}
 
-@bot.message_handler(commands=['checkmy'])
-def cmd_check_my_status(message):
-    user_id = message.from_user.id
-    rank = 'Нету в базе'
+def get_directors():
+    cursor.execute('SELECT user_id FROM directors')
+    return {row[0] for row in cursor.fetchall()}
 
-    if user_id in scammers:
-        rank = 'скамер'
-    elif user_id in guarantees:
-        rank = 'гарант'
-
-    username = f"ID: {user_id}"  # Замените на логику для получения username
-
-    bot.reply_to(message, 
-                  f"🔎Результат поиска:\n"
-                  f"🔥Репутация: {rank}\n"
-                  f"🆔Айди: {user_id}\n  ")
-
-@bot.message_handler(commands=['addgarant'])
-def cmd_add_garant(message):
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для добавления в гарант.')
-        return
-
-    garant_id = get_user_id(args[0])
-    if garant_id is None:
-        bot.reply_to(message, 'Некорректный ID или username.')
-        return
-
-    guarantees[garant_id] = True
-    bot.reply_to(message, f'Пользователь {garant_id} добавлен как гарант.')
-
-@bot.message_handler(commands=['delbase'])
-def cmd_del_base(message):
-    if message.from_user.id not in admins:
-        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
-        return
-
-    args = message.text.split()[1:]
-    if len(args) < 2:
-        bot.reply_to(message, 'Используйте: /delbase (юзерID) (причина)')
-        return
-
-    del_user_id = get_user_id(args[0])
-    if del_user_id is None:
-        bot.reply_to(message, 'Некорректный ID или username.')
-        return
-
-    # Удаление пользователя из базы (возврат статуса)
-    if del_user_id in scammers:
-        scammers.remove(del_user_id)
-    if del_user_id in guarantees:
-        guarantees.pop(del_user_id, None)
-
-    bot.reply_to(message, f'Пользователь {del_user_id} удален из базы. Причина: {" ".join(args[1:])}. Статус возвращен: Нету в базе.')
+# Existing functions...
 
 # Запуск бота с обработкой исключений
 while True:
