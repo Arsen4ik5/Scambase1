@@ -4,7 +4,7 @@ import sqlite3
 import time
 import threading
 
-API_TOKEN = 'YOUR_API_TOKEN'
+API_TOKEN = '7994365938:AAGHSzJZ1Vp8Hl8SKNeIecfre3wLMvnTR3s'
 ADMIN_ID = [6321157988]
 OWNER_ID = [797141384]
 VOLUNTEER_ID = []
