@@ -1,20 +1,19 @@
-import telebot 
-import random
+import telebot
 import sqlite3
 
 API_TOKEN = '7275319279:AAGZh_GzI4iO5Vsb3lcBsF0RLUq5Meh-yh8'
 ADMIN_ID = []
-OWNER_ID = [6321157988]
+OWNER_ID = [6321157988, 797141384]
 VOLUNTEER_ID = []
 DIRECTOR_ID = []
 
 bot = telebot.TeleBot(API_TOKEN)
 
 # Подключение к базе данных
-conn = sqlite3.connect('bot_database.txt', check_same_thread=False)
+conn = sqlite3.connect('bot_database.db', check_same_thread=False)
 cursor = conn.cursor()
 
-# таблицы
+# Создание таблиц в базе данных
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS admins (
     user_id INTEGER PRIMARY KEY
@@ -106,7 +105,12 @@ def get_user_id(param):
 def user_has_permission(message, role_list):
     return message.from_user.id in role_list
 
-# Главная команда /checkmy
+# Проверка существования пользователя в таблице
+def user_exists(user_id, table):
+    cursor.execute(f'SELECT user_id FROM {table} WHERE user_id = ?', (user_id,))
+    return cursor.fetchone() is not None
+
+# Команда /checkmy
 @bot.message_handler(commands=['checkmy'])
 def cmd_check_my_status(message):
     user_id = message.from_user.id
@@ -120,7 +124,7 @@ def cmd_check_my_status(message):
 # Добавление роли волонтера
 @bot.message_handler(commands=['addvolunteer'])
 def cmd_add_volunteer(message):
-    if not user_has_permission(message, OWNER_ID):
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
@@ -134,13 +138,17 @@ def cmd_add_volunteer(message):
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
+    if user_exists(volunteer_id, 'volunteer'):
+        bot.reply_to(message, f'Пользователь {volunteer_id} уже является волонтером.')
+        return
+
     add_volunteer(volunteer_id)
     bot.reply_to(message, f'Пользователь {volunteer_id} добавлен как волонтер.')
 
 # Добавление роли директора
 @bot.message_handler(commands=['adddirector'])
 def cmd_add_director(message):
-    if not user_has_permission(message, OWNER_ID):
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
@@ -154,13 +162,17 @@ def cmd_add_director(message):
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
+    if user_exists(director_id, 'director'):
+        bot.reply_to(message, f'Пользователь {director_id} уже является директором.')
+        return
+
     add_director(director_id)
     bot.reply_to(message, f'Пользователь {director_id} добавлен как директор.')
 
 # Команда /ban
 @bot.message_handler(commands=['ban'])
 def cmd_ban(message):
-    if not user_has_permission(message, ADMIN_ID + OWNER_ID + DIRECTOR_ID):
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
@@ -183,7 +195,7 @@ def cmd_ban(message):
 # Команда /unban
 @bot.message_handler(commands=['unban'])
 def cmd_unban(message):
-    if not user_has_permission(message, ADMIN_ID + OWNER_ID + DIRECTOR_ID):
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
     
@@ -226,7 +238,7 @@ def cmd_mute(message):
 # Команда /unmute
 @bot.message_handler(commands=['unmute'])
 def cmd_unmute(message):
-    if not user_has_permission(message, ADMIN_ID + OWNER_ID + DIRECTOR_ID):
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
@@ -247,7 +259,7 @@ def cmd_unmute(message):
 # Команда /warn
 @bot.message_handler(commands=['warn'])
 def cmd_warn(message):
-    if not user_has_permission(message, ADMIN_ID + OWNER_ID + DIRECTOR_ID):
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
@@ -263,15 +275,14 @@ def cmd_warn(message):
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
-    # Here, you can implement your logic for issuing warnings
-    # For instance, maintaining a warning count
+    # Здесь можно добавить логику для выдачи предупреждений
 
     bot.reply_to(message, f'Варн выдан для пользователя {user_to_warn}. Причина: {reason}')
 
 # Команда /delmute
 @bot.message_handler(commands=['delmute'])
 def cmd_delmute(message):
-    if not user_has_permission(message, ADMIN_ID + OWNER_ID + DIRECTOR_ID):
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
@@ -296,7 +307,7 @@ def add_volunteer(user_id):
     cursor.execute('INSERT OR IGNORE INTO volunteer (user_id) VALUES (?)', (user_id,))
     conn.commit()
 
-# Добавление пользовател к директорам
+# Добавление пользователя в директоры
 def add_director(user_id):
     cursor.execute('INSERT OR IGNORE INTO director (user_id) VALUES (?)', (user_id,))
     conn.commit()
