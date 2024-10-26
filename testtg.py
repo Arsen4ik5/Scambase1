@@ -88,6 +88,10 @@ def send_welcome(message):
                  /unmute (юзерID) - Убрать мут
                  /warn (юзерID) (причина) - Выдать варн
                  /delmute (юзерID) (причина) (время) - Замутить и удалить последние 5 сообщений нарушителя
+                 /deladmin (юзерID) - Снять с админа
+                 /deldirector (юзерID) - Снять с директора
+                 /delgarant (юзерID) - Снять с гаранта
+                 /delvolunteer (юзерID) - Снять с волонтера
                  """)
 
 # Получение Id пользователя
@@ -145,6 +149,30 @@ def cmd_add_volunteer(message):
     add_volunteer(volunteer_id)
     bot.reply_to(message, f'Пользователь {volunteer_id} добавлен как волонтер.')
 
+# Удаление роли волонтера
+@bot.message_handler(commands=['delvolunteer'])
+def cmd_del_volunteer(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для удаления из волонтеров.')
+        return
+
+    volunteer_id = get_user_id(args[0])
+    if volunteer_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    if not user_exists(volunteer_id, 'volunteer'):
+        bot.reply_to(message, f'Пользователь {volunteer_id} не является волонтером.')
+        return
+
+    remove_volunteer(volunteer_id)
+    bot.reply_to(message, f'Пользователь {volunteer_id} удален из волонтеров.')
+
 # Добавление роли директора
 @bot.message_handler(commands=['adddirector'])
 def cmd_add_director(message):
@@ -168,6 +196,30 @@ def cmd_add_director(message):
 
     add_director(director_id)
     bot.reply_to(message, f'Пользователь {director_id} добавлен как директор.')
+
+# Удаление роли директора
+@bot.message_handler(commands=['deldirector'])
+def cmd_del_director(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для удаления из директоров.')
+        return
+
+    director_id = get_user_id(args[0])
+    if director_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    if not user_exists(director_id, 'director'):
+        bot.reply_to(message, f'Пользователь {director_id} не является директором.')
+        return
+
+    remove_director(director_id)
+    bot.reply_to(message, f'Пользователь {director_id} удален из директоров.')
 
 # Команда /ban
 @bot.message_handler(commands=['ban'])
@@ -302,14 +354,48 @@ def cmd_delmute(message):
     add_mute(user_to_mute, reason)
     bot.reply_to(message, f'Пользователь {user_to_mute} замучен и удалены последние 5 сообщений. Причина: {reason}')
 
-# Добавление пользователя в волонтеры
+# Удаление роли админа
+@bot.message_handler(commands=['deladmin'])
+def cmd_del_admin(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для удаления из администраторов.')
+        return
+
+    admin_id = get_user_id(args[0])
+    if admin_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    if not user_exists(admin_id, 'admins'):
+        bot.reply_to(message, f'Пользователь {admin_id} не является администратором.')
+        return
+
+    remove_admin(admin_id)
+    bot.reply_to(message, f'Пользователь {admin_id} удален из администраторов.')
+
+# Добавление пользователя в волонтёры
 def add_volunteer(user_id):
     cursor.execute('INSERT OR IGNORE INTO volunteer (user_id) VALUES (?)', (user_id,))
+    conn.commit()
+
+# Удаление пользователя из волонтёров
+def remove_volunteer(user_id):
+    cursor.execute('DELETE FROM volunteer WHERE user_id = ?', (user_id,))
     conn.commit()
 
 # Добавление пользователя в директоры
 def add_director(user_id):
     cursor.execute('INSERT OR IGNORE INTO director (user_id) VALUES (?)', (user_id,))
+    conn.commit()
+
+# Удаление пользователя из директоров
+def remove_director(user_id):
+    cursor.execute('DELETE FROM director WHERE user_id = ?', (user_id,))
     conn.commit()
 
 # Команды для добавления в бан
@@ -328,6 +414,10 @@ def add_mute(user_id, reason):
 
 def remove_mute(user_id):
     cursor.execute('DELETE FROM mutes WHERE user_id = ?', (user_id,))
+    conn.commit()
+
+def remove_admin(user_id):
+    cursor.execute('DELETE FROM admins WHERE user_id = ?', (user_id,))
     conn.commit()
 
 def check_user_rank(user_id):
