@@ -124,6 +124,91 @@ def cmd_check_my_status(message):
                   f"🔎Результат поиска:\n"
                   f"🔥Репутация: {rank}\n"
                   f"🆔Айди: {user_id}\n")
+# Команда /addadm
+@bot.message_handler(commands=['addadm'])
+def cmd_add_admin(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для добавления в администраторы.')
+        return
+
+    admin_id = get_user_id(args[0])
+    if admin_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    if user_exists(admin_id, 'admins'):
+        bot.reply_to(message, f'Пользователь {admin_id} уже является администратором.')
+        return
+
+    add_admin(admin_id)
+    bot.reply_to(message, f'Пользователь {admin_id} добавлен как администратор.')
+
+
+# Команда /addgarant
+@bot.message_handler(commands=['addgarant'])
+def cmd_add_guarantee(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для добавления в гарант.')
+        return
+
+    garant_id = get_user_id(args[0])
+    if garant_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    if user_exists(garant_id, 'guarantees'):
+        bot.reply_to(message, f'Пользователь {garant_id} уже является гарантом.')
+        return
+
+    add_guarantee(garant_id)
+    bot.reply_to(message, f'Пользователь {garant_id} добавлен как гарант.')
+
+
+# Команда /delgarant
+@bot.message_handler(commands=['delgarant'])
+def cmd_del_guarantee(message):
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
+
+    args = message.text.split()[1:]
+    if len(args) < 1:
+        bot.reply_to(message, 'Укажите ID пользователя для удаления из гарантов.')
+        return
+
+    garant_id = get_user_id(args[0])
+    if garant_id is None:
+        bot.reply_to(message, 'Некорректный ID или username.')
+        return
+
+    if not user_exists(garant_id, 'guarantees'):
+        bot.reply_to(message, f'Пользователь {garant_id} не является гарантом.')
+        return
+
+    remove_guarantee(garant_id)
+    bot.reply_to(message, f'Пользователь {garant_id} удалён из гарантов.')
+
+
+# Добавление пользователя в гаранты
+def add_guarantee(user_id):
+    cursor.execute('INSERT OR IGNORE INTO guarantees (user_id) VALUES (?)', (user_id,))
+    conn.commit()
+
+
+# Удаление пользователя из гарантов
+def remove_guarantee(user_id):
+    cursor.execute('DELETE FROM guarantees WHERE user_id = ?', (user_id,))
+    conn.commit()
 
 # Добавление роли волонтера
 @bot.message_handler(commands=['addvolunteer'])
