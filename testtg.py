@@ -124,7 +124,7 @@ def cmd_check_my_status(message):
     user_id = message.from_user.id
     rank = check_user_rank(user_id)
 
-    if rank == 'директор':
+    if rank == 'директор + волонтёр + админ':
         bot.reply_to(message,
         f"🔎Результат поиска:\n"
         f"🔥Репутация: {rank}\n"
