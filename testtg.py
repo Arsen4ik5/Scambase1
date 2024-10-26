@@ -521,17 +521,17 @@ def remove_admin(user_id):
     conn.commit()
 
 def check_user_rank(user_id):
-    if user_id in get_scammers():
-        return 'скамер'
-    elif user_id in get_guarantees():
-        return 'гарант'
-    elif user_id in get_admins():
-        return 'админ'
-    elif user_id in get_volunteers():
-return 'волонтёр'
-    elif user_id in get_directors():
-        return 'директор'
-    return 'Нету в базе'
+if user_id в get_scammers():
+вернуть 'скамер'
+elif user_id в get_guarantees():
+вернуть 'гарант'
+elif user_id в get_admins ():
+return 'admin'
+elif user_id в get_volunteers():
+return 'волонтёр' # Эта строка последней роли волонтера
+elif user_id в get_directors():
+return 'director'
+return 'Нету в базе'
 
 def get_guarantees():
     cursor.execute('SELECT user_id FROM guarantees')
