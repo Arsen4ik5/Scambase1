@@ -528,7 +528,7 @@ def check_user_rank(user_id):
     elif user_id in get_admins():
         return 'админ'
     elif user_id in get_volunteers():
-        return 'волонтёр'
+return 'волонтёр'
     elif user_id in get_directors():
         return 'директор'
     return 'Нету в базе'
