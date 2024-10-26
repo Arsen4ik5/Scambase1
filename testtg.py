@@ -6,6 +6,8 @@ ADMIN_ID = []
 OWNER_ID = [6321157988, 797141384]
 VOLUNTEER_ID = []
 DIRECTOR_ID = []
+SLITOscam = 0  # Initialize SLITOscam
+zayavki = 0    # Initialize zayavki
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -16,51 +18,51 @@ cursor = conn.cursor()
 # Создание таблиц в базе данных
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS admins (
-    user_id INTEGER PRIMARY KEY
+user_id INTEGER PRIMARY KEY
 )
 ''')
 
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS guarantees (
-    user_id INTEGER PRIMARY KEY
+user_id INTEGER PRIMARY KEY
 )
 ''')
 
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS scammers (
-    user_id INTEGER PRIMARY KEY,
-    evidence TEXT,
-    reason TEXT
+user_id INTEGER PRIMARY KEY,
+evidence TEXT,
+reason TEXT
 )
 ''')
 
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS volunteer (
-    user_id INTEGER PRIMARY KEY
+user_id INTEGER PRIMARY KEY
 )
 ''')
 
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS director (
-    user_id INTEGER PRIMARY KEY
+user_id INTEGER PRIMARY KEY
 )
 ''')
 
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS bans (
-    user_id INTEGER,
-    time INTEGER,
-    reason TEXT,
-    PRIMARY KEY (user_id, time)
+user_id INTEGER,
+time INTEGER,
+reason TEXT,
+PRIMARY KEY (user_id, time)
 )
 ''')
 
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS mutes (
-    user_id INTEGER,
-    reason TEXT,
-    time INTEGER,
-    PRIMARY KEY (user_id, time)
+user_id INTEGER,
+reason TEXT,
+time INTEGER,
+PRIMARY KEY (user_id, time)
 )
 ''')
 
@@ -68,31 +70,33 @@ conn.commit()
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, 
-                 """Используйте следующие команды:
-                 /report (юзерID) (причина) - Подать жалобу
-                 /acceptreport (номер) (ранг) - Принять жалобу
-                 /addadm (юзерID) - Добавить админа
-                 /check (юзерID) - Проверить репутацию
-                 /checkmy - Проверить свой статус
-                 /addgarant (юзерID) - Сделать гарантом
-                 /delbase (юзерID) (причина) - Удалить из базы
-                 /scam (юзернейм) (доказательства) (причина) - Добавить пользователя в скам базу
-                 /trust (юзернейм) - Выдать траст пользователю
-                 /revoke_trust (юзернейм) - Забрать траст у пользователя
-                 /addvolunteer (юзерID) - Добавить волонтера
-                 /adddirector (юзерID) - Добавить директора
-                 /ban (юзерID) (время) (причина) - Забанить пользователя
-                 /unban (юзерID) - Разбанить пользователя
-                 /mute (юзерID) (причина) - Замутить пользователя
-                 /unmute (юзерID) - Убрать мут
-                 /warn (юзерID) (причина) - Выдать варн
-                 /delmute (юзерID) (причина) (время) - Замутить и удалить последние 5 сообщений нарушителя
-                 /deladmin (юзерID) - Снять с админа
-                 /deldirector (юзерID) - Снять с директора
-                 /delgarant (юзерID) - Снять с гаранта
-                 /delvolunteer (юзерID) - Снять с волонтера
-                 """)
+    bot.reply_to(message,
+    """Используйте следующие команды:
+/report (юзерID) (причина) - Подать жалобу
+/acceptreport (номер) (ранг) - Принять жалобу
+/addadm (юзерID) - Добавить админа
+/check (юзерID) - Проверить репутацию
+/checkmy - Проверить свой статус
+/addgarant (юзерID) - Сделать гарантом
+/delbase (юзерID) (причина) - Удалить из базы
+/scam (юзернейм) (доказательства) (причина) - Добавить пользователя в скам базу
+/trust (юзернейм) - Выдать траст пользователю
+/revoke_trust (юзернейм) - Забрать траст у пользователя
+/addvolunteer (юзерID) - Добавить волонтера
+/adddirector (юзерID) - Добавить директора
+/ban (юзерID) (время) (причина) - Забанить пользователя
+/unban (юзерID) - Разбанить пользователя
+/mute (юзерID) (причина) - Замутить пользователя
+/unmute (юзерID) - Убрать мут
+/warn (юзерID) (причина) - Выдать варн
+/delmute (юзерID) (причина) (время) - Замутить и удалить последние 5 сообщений нарушителя
+/deladmin (юзерID) - Снять с админа
+/deldirector (юзерID) - Снять с директора
+/delgarant (юзерID) - Снять с гаранта
+/delvolunteer (юзерID) - Снять с волонтера
+/z (id) (кол-во заявок) - Добавить заявки к пользователю
+/spasibo (id) - Выдать +1 к SLITOscam пользователю
+""")
 
 # Получение Id пользователя
 def get_user_id(param):
@@ -120,10 +124,27 @@ def cmd_check_my_status(message):
     user_id = message.from_user.id
     rank = check_user_rank(user_id)
 
-    bot.reply_to(message, 
-                  f"🔎Результат поиска:\n"
-                  f"🔥Репутация: {rank}\n"
-                  f"🆔Айди: {user_id}\n")
+    if rank == 'директор':
+        bot.reply_to(message,
+        f"🔎Результат поиска:\n"
+        f"🔥Репутация: {rank}\n"
+        f"👀Заявки: {zayavki}\n"
+        f"🆔Айди: {user_id}\n")
+    elif rank == 'скамер':
+        evidence, reason = get_scammers_info(user_id)
+        bot.reply_to(message,
+        f"🔎Результат поиска:\n"
+        f"🔥Репутация: {rank}\n"
+        f"🆔Айди: {user_id}\n"
+        f"📝Доказательства: {evidence}\n"
+        f"📋Причина: {reason}\n")
+    else:
+        bot.reply_to(message,
+        f"🔎Результат поиска:\n"
+        f"🔥Репутация: Нет в базе\n"
+        f"📝Слито скамеров: {SLITOscam}\n"
+        f"🆔Айди: {user_id}\n")
+
 # Команда /addadm
 @bot.message_handler(commands=['addadm'])
 def cmd_add_admin(message):
@@ -148,62 +169,57 @@ def cmd_add_admin(message):
     add_admin(admin_id)
     bot.reply_to(message, f'Пользователь {admin_id} добавлен как администратор.')
 
+# Команда /z
+@bot.message_handler(commands=['z'])
+def cmd_add_zayavki(message):
+    global zayavki
+    if message.from_user.id not in OWNER_ID:
+        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
+        return
 
-# Команда /addgarant
-@bot.message_handler(commands=['addgarant'])
-def cmd_add_guarantee(message):
+    args = message.text.split()[1:]
+    if len(args) < 2:
+        bot.reply_to(message, 'Используйте: /z (id) (кол-во заявок)')
+        return
+
+    user_id = get_user_id(args[0])
+    try:
+        count = int(args[1])
+        if user_id is None or count < 1:
+            bot.reply_to(message, 'Некорректный ID или количество заявок.')
+            return
+    except ValueError:
+        bot.reply_to(message, 'Некорректное количество заявок. Введите число.')
+        return
+
+    zayavki += count
+    bot.reply_to(message, f'Добавлено {count} заявок пользователю {user_id}. Теперь у него {zayavki} заявок.')
+
+# Команда /spasibo
+@bot.message_handler(commands=['spasibo'])
+def cmd_spasibo(message):
+    global SLITOscam
     if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
     args = message.text.split()[1:]
     if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для добавления в гарант.')
+        bot.reply_to(message, 'Используйте: /spasibo (id)')
         return
 
-    garant_id = get_user_id(args[0])
-    if garant_id is None:
+    user_id = get_user_id(args[0])
+    if user_id is None:
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
-    if user_exists(garant_id, 'guarantees'):
-        bot.reply_to(message, f'Пользователь {garant_id} уже является гарантом.')
-        return
-
-    add_guarantee(garant_id)
-    bot.reply_to(message, f'Пользователь {garant_id} добавлен как гарант.')
-
-
-# Команда /delgarant
-@bot.message_handler(commands=['delgarant'])
-def cmd_del_guarantee(message):
-    if message.from_user.id not in OWNER_ID:
-        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
-        return
-
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для удаления из гарантов.')
-        return
-
-    garant_id = get_user_id(args[0])
-    if garant_id is None:
-        bot.reply_to(message, 'Некорректный ID или username.')
-        return
-
-    if not user_exists(garant_id, 'guarantees'):
-        bot.reply_to(message, f'Пользователь {garant_id} не является гарантом.')
-        return
-
-    remove_guarantee(garant_id)
-    bot.reply_to(message, f'Пользователь {garant_id} удалён из гарантов.')
-
+    SLITOscam += 1
+    bot.reply_to(message, f'Выдано +1 к SLITOscam для пользователя {user_id}. Теперь у него {SLITOscam}.')
 
 # Добавление пользователя в гаранты
 def add_guarantee(user_id):
     cursor.execute('INSERT OR IGNORE INTO guarantees (user_id) VALUES (?)', (user_id,))
     conn.commit()
-
 
 # Удаление пользователя из гарантов
 def remove_guarantee(user_id):
@@ -335,14 +351,14 @@ def cmd_unban(message):
     if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
-    
+
     args = message.text.split()[1:]
     if len(args) < 1:
         bot.reply_to(message, 'Используйте: /unban (юзерID)')
         return
 
     user_to_unban = get_user_id(args[0])
-    
+
     if user_to_unban is None:
         bot.reply_to(message, 'Некорректный ID или username.')
         return
@@ -413,7 +429,6 @@ def cmd_warn(message):
         return
 
     # Здесь можно добавить логику для выдачи предупреждений
-
     bot.reply_to(message, f'Варн выдан для пользователя {user_to_warn}. Причина: {reason}')
 
 # Команда /delmute
