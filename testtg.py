@@ -124,7 +124,7 @@ def cmd_check_my_status(message):
     user_id = message.from_user.id
     rank = check_user_rank(user_id)
 
-    if rank == 'директор + волонтёр + админ':
+    if rank == 'директор and волонтёр and админ':
         bot.reply_to(message,
         f"🔎Результат поиска:\n"
         f"🔥Репутация: {rank}\n"
@@ -520,18 +520,19 @@ def remove_admin(user_id):
     cursor.execute('DELETE FROM admins WHERE user_id = ?', (user_id,))
     conn.commit()
 
+# Проверка ранга пользователя
 def check_user_rank(user_id):
-if user_id в get_scammers():
-вернуть 'скамер'
-elif user_id в get_guarantees():
-вернуть 'гарант'
-elif user_id в get_admins ():
-return 'admin'
-elif user_id в get_volunteers():
-return 'волонтёр' # Эта строка последней роли волонтера
-elif user_id в get_directors():
-return 'director'
-return 'Нету в базе'
+    if user_id in get_scammers():
+        return 'скамер'
+    elif user_id in get_guarantees():
+        return 'гарант'
+    elif user_id in get_admins():
+        return 'админ'
+    elif user_id in get_volunteers():
+        return 'волонтёр'
+    elif user_id in get_directors():
+        return 'директор'
+    return 'Нету в базе'
 
 def get_guarantees():
     cursor.execute('SELECT user_id FROM guarantees')
