@@ -2,9 +2,9 @@ import telebot
 import sqlite3
 import random
 
-API_TOKEN = '7994365938:AAGHSzJZ1Vp8Hl8SKNeIecfre3wLMvnTR3s'  # Замените на свой токен
-ADMIN_ID = []
-OWNER_ID = [6321157988]
+API_TOKEN = 'YOUR_API_TOKEN'  # Замените на свой токен
+ADMIN_ID = [6321157988]
+OWNER_ID = [797141384]
 VOLUNTEER_ID = []
 DIRECTOR_ID = []
 GARANT_ID = []
@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS mutes (
 
 conn.commit()
 
+reports = {}
+
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, 
@@ -83,7 +85,7 @@ def send_welcome(message):
                  /trust (юзернейм) - Выдать траст пользователю
                  /revoke_trust (юзернейм) - Забрать траст у пользователя""")
 
-# это получение ид
+# Получение ID
 def get_user_id(param):
     try:
         if param.isdigit():
@@ -124,7 +126,7 @@ def cmd_accept_report(message):
 
     args = message.text.split()[1:]
     if len(args) < 2:
-        bot.reply_to(message, 'Укажите номер жалобы и ранг (скамер, петух, гарант).')
+        bot.reply_to(message, 'Укажите номер жалобы и ранг (скамер, гарант).')
         return
 
     try:
@@ -219,6 +221,11 @@ def cmd_check(message):
                       f"📝Доказательства: {evidence}\n"
                       f"📋Причина: {reason}\n")
     elif rank == 'гарант':
+        bot.reply_to(message, 
+                      f"🔎Результат поиска:\n"
+                      f"🔥Репутация: {rank}\n"
+                      f"🆔Айди: {check_user_id}\n")
+    elif rank in ['админ', 'директор']:
         bot.reply_to(message, 
                       f"🔎Результат поиска:\n"
                       f"🔥Репутация: {rank}\n"
@@ -488,6 +495,10 @@ def add_mute(user_id, reason):
 
 def remove_mute(user_id):
     cursor.execute('DELETE FROM mutes WHERE user_id = ?', (user_id,))
+    conn.commit()
+
+def add_admin(user_id):
+    cursor.execute('INSERT OR IGNORE INTO admins (user_id) VALUES (?)', (user_id,))
     conn.commit()
 
 def remove_admin(user_id):
