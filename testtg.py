@@ -29,6 +29,12 @@ CREATE TABLE IF NOT EXISTS guarantees (
 ''')
 
 cursor.execute('''
+CREATE TABLE IF NOT EXISTS verified_guarantees (
+    user_id INTEGER PRIMARY KEY
+)
+''')
+
+cursor.execute('''
 CREATE TABLE IF NOT EXISTS scammers (
     user_id INTEGER PRIMARY KEY,
     evidence TEXT,
@@ -83,7 +89,7 @@ def send_welcome(message):
                  /delbase (юзерID) (причина) - Удалить из базы
                  /scam (юзернейм) (доказательства) (причина) - Добавить пользователя в скам базу
                  /trust (юзернейм) - Выдать траст пользователю
-                 /revoke_trust (юзернейм) - Забрать траст у пользователя""")
+                 /untrust (юзернейм) - Забрать траст у пользователя""")
 
 # Получение ID
 def get_user_id(param):
@@ -203,10 +209,10 @@ def cmd_check(message):
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
-    if check_user_id in get_guarantees():
+    if check_user_id in get_verified_guarantees():
         bot.reply_to(message, 
                       f"🔎Результат поиска:\n"
-                      f"🔥Репутация: Гарант\n"
+                      f"🔥Репутация: Проверенный гарант\n"
                       f"🆔Айди: {check_user_id}\n")
         return
 
@@ -264,10 +270,10 @@ def cmd_scam(message):
 def cmd_check_my_status(message):
     user_id = message.from_user.id
     
-    if user_id in get_guarantees():
+    if user_id in get_verified_guarantees():
         bot.reply_to(message, 
                       f"🔎Результат поиска:\n"
-                      f"🔥Репутация: Гарант\n"
+                      f"🔥Репутация: Проверенный гарант\n"
                       f"🆔Айди: {user_id}\n")
         return
 
@@ -340,98 +346,12 @@ def cmd_trust(message):
         bot.reply_to(message, 'Нельзя выдать траст скамеру.')
         return
 
-    if trust_user_id not in get_guarantees():
-        add_to_guarantees(trust_user_id)
-        bot.reply_to(message, f'Пользователю {username} (ID: {trust_user_id}) выдан траст.')
+    if trust_user_id not in get_verified_guarantees():
+        cursor.execute('INSERT OR IGNORE INTO verified_guarantees (user_id) VALUES (?)', (trust_user_id,))
+        conn.commit()
+        bot.reply_to(message, f'Пользователю {username} (ID: {trust_user_id}) выдан ранг Проверенный гарант.')
     else:
-        bot.reply_to(message, f'Пользователь {username} уже является гарантированным.')
-
-@bot.message_handler(commands=['adddirector'])
-def cmd_add_director(message):
-    if message.from_user.id not in OWNER_ID:
-        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
-        return
-
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для добавления в директора.')
-        return
-
-    director_id = get_user_id(args[0])
-    if director_id is None:
-        bot.reply_to(message, 'Некорректный ID или username.')
-        return
-
-    if user_exists(director_id, 'director'):
-        bot.reply_to(message, f'Пользователь {director_id} уже является директором.')
-        return
-
-    add_director(director_id)
-    bot.reply_to(message, f'Пользователь {director_id} добавлен как директор.')
-
-@bot.message_handler(commands=['deldirector'])
-def cmd_del_director(message):
-    if message.from_user.id not in OWNER_ID:
-        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
-        return
-
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для удаления из директоров.')
-        return
-
-    director_id = get_user_id(args[0])
-    if director_id is None:
-        bot.reply_to(message, 'Некорректный ID или username.')
-        return
-
-    if not user_exists(director_id, 'director'):
-        bot.reply_to(message, f'Пользователь {director_id} не является директором.')
-        return
-
-    remove_director(director_id)
-    bot.reply_to(message, f'Пользователь {director_id} удален из директоров.')
-
-@bot.message_handler(commands=['deladmin'])
-def cmd_del_admin(message):
-    if message.from_user.id not in OWNER_ID:
-        bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
-        return
-
-    args = message.text.split()[1:]
-    if len(args) < 1:
-        bot.reply_to(message, 'Укажите ID пользователя для удаления из администраторов.')
-        return
-
-    admin_id = get_user_id(args[0])
-    if admin_id is None:
-        bot.reply_to(message, 'Некорректный ID или username.')
-        return
-
-    if not user_exists(admin_id, 'admins'):
-        bot.reply_to(message, f'Пользователь {admin_id} не является администратором.')
-        return
-
-    remove_admin(admin_id)
-    bot.reply_to(message, f'Пользователь {admin_id} удален из администраторов.')
-
-@bot.message_handler(commands=['ban'])
-def kick_user(message):
-    if message.from_user.id not in OWNER_ID and message.from_user.id not in DIRECTOR_ID and message.from_user.id not in ADMIN_ID:
-        bot.reply_to(message, "[❌] Ошибка")
-        return
-
-    if message.reply_to_message:
-        chat_id = message.chat.id
-        user_id = message.reply_to_message.from_user.id
-        user_status = bot.get_chat_member(chat_id, user_id).status
-        if user_status == 'administrator' or user_status == 'creator':
-            bot.reply_to(message, "Невозможно забанить администратора.")
-        else:
-            bot.kick_chat_member(chat_id, user_id)
-            bot.reply_to(message, f"Пользователь {message.reply_to_message.from_user.username} был забанен.")
-    else:
-        bot.reply_to(message, "Эта команда должна быть использована в ответ на сообщение пользователя, которого вы хотите забанить.")
+        bot.reply_to(message, f'Пользователь {username} уже является Проверенным гарант.')
 
 @bot.message_handler(commands=['untrust'])
 def cmd_revoke_trust(message):
@@ -441,7 +361,7 @@ def cmd_revoke_trust(message):
 
     args = message.text.split()[1:]
     if len(args) < 1:
-        bot.reply_to(message, 'Используйте: /revoke_trust (юзернейм)')
+        bot.reply_to(message, 'Используйте: /untrust (юзернейм)')
         return
 
     username = args[0]
@@ -450,12 +370,13 @@ def cmd_revoke_trust(message):
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
-    if revoke_user_id not in get_guarantees():
-        bot.reply_to(message, 'У данного пользователя нет траста.')
+    if revoke_user_id not in get_verified_guarantees():
+        bot.reply_to(message, 'У данного пользователя нет ранга Проверенный гарант.')
         return
 
-    remove_from_guarantees(revoke_user_id)
-    bot.reply_to(message, f'Траст у пользователя {username} (ID: {revoke_user_id}) забран.')
+    cursor.execute('DELETE FROM verified_guarantees WHERE user_id = ?', (revoke_user_id,))
+    conn.commit()
+    bot.reply_to(message, f'Ранг Проверенный гарант у пользователя {username} (ID: {revoke_user_id}) забран.')
 
 # Добавление пользователя в волонтёры
 def add_volunteer(user_id):
@@ -506,6 +427,8 @@ def remove_admin(user_id):
 def check_user_rank(user_id):
     if user_id in get_scammers():
         return 'скамер'
+    elif user_id in get_verified_guarantees():
+        return 'Проверен Гарантом'
     elif user_id in get_guarantees():
         return 'гарант'
     elif user_id in get_admins():
@@ -518,6 +441,10 @@ def check_user_rank(user_id):
 
 def get_guarantees():
     cursor.execute('SELECT user_id FROM guarantees')
+    return {row[0] for row in cursor.fetchall()}
+
+def get_verified_guarantees():
+    cursor.execute('SELECT user_id FROM verified_guarantees')
     return {row[0] for row in cursor.fetchall()}
 
 def get_scammers():
@@ -554,6 +481,7 @@ def remove_user(user_id):
     remove_admin(user_id)
     remove_director(user_id)
     remove_from_guarantees(user_id)
+    cursor.execute('DELETE FROM verified_guarantees WHERE user_id = ?', (user_id,))
     cursor.execute('DELETE FROM scammers WHERE user_id = ?', (user_id,))
     cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
     cursor.execute('DELETE FROM mutes WHERE user_id = ?', (user_id,))
