@@ -426,14 +426,9 @@ def kick_user(message):
             bot.reply_to(message, "Невозможно забанить администратора.")
         else:
             bot.kick_chat_member(chat_id, user_id)
-            bot.reply_to(
-                message, 
-                f"Пользователь {message.reply_to_message.from_user.username} был забанен.")
+            bot.reply_to(message, f"Пользователь {message.reply_to_message.from_user.username} был забанен.")
     else:
-        bot.reply_to(
-            message,
-            "Эта команда должна быть использована в ответ "
-            "на сообщение пользователя, которого вы хотите забанить.")
+        bot.reply_to(message, "Эта команда должна быть использована в ответ на сообщение пользователя, которого вы хотите забанить.")
 
 @bot.message_handler(commands=['untrust'])
 def cmd_revoke_trust(message):
@@ -560,6 +555,11 @@ def remove_user(user_id):
     cursor.execute('DELETE FROM bans WHERE user_id = ?', (user_id,))
     cursor.execute('DELETE FROM mutes WHERE user_id = ?', (user_id,))
     conn.commit()
+
+def get_scammers_info(user_id):
+    cursor.execute('SELECT evidence, reason FROM scammers WHERE user_id = ?', (user_id,))
+    result = cursor.fetchone()
+    return result if result else (None, None)
 
 # Запуск бота с обработкой исключений
 while True:
