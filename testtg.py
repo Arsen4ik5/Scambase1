@@ -294,8 +294,11 @@ def cmd_add_garant(message):
         bot.reply_to(message, 'Некорректный ID или username.')
         return
 
-    add_to_guarantees(garant_id)
-    bot.reply_to(message, f'Пользователь {garant_id} добавлен как гарант.')
+    if garant_id in get_guarantees():
+        bot.reply_to(message, 'Пользователь уже является гарантированным.')
+    else:
+        add_to_guarantees(garant_id)
+        bot.reply_to(message, f'Пользователь {garant_id} добавлен как гарант.')
 
 @bot.message_handler(commands=['delbase'])
 def cmd_del_base(message):
