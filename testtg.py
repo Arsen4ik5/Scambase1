@@ -280,7 +280,7 @@ def cmd_check_my_status(message):
 
 @bot.message_handler(commands=['addgarant'])
 def cmd_add_garant(message):
-    if message.from_user.id not in ADMIN_ID:
+    if message.from_user.id not in OWNER_ID:
         bot.reply_to(message, 'У вас нет прав для выполнения этой команды.')
         return
 
@@ -295,7 +295,7 @@ def cmd_add_garant(message):
         return
 
     if garant_id in get_guarantees():
-        bot.reply_to(message, 'Пользователь уже является гарантированным.')
+        bot.reply_to(message, 'Пользователь уже является гарантом.')
     else:
         add_to_guarantees(garant_id)
         bot.reply_to(message, f'Пользователь {garant_id} добавлен как гарант.')
