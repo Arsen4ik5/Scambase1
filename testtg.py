@@ -206,7 +206,7 @@ def cmd_check(message):
     if check_user_id in get_guarantees():
         bot.reply_to(message, 
                       f"🔎Результат поиска:\n"
-                      f"🔥Репутация: Проверен гарантом\n"
+                      f"🔥Репутация: Гарант\n"
                       f"🆔Айди: {check_user_id}\n")
         return
 
@@ -267,7 +267,7 @@ def cmd_check_my_status(message):
     if user_id in get_guarantees():
         bot.reply_to(message, 
                       f"🔎Результат поиска:\n"
-                      f"🔥Репутация: Проверен гарантом\n"
+                      f"🔥Репутация: Гарант\n"
                       f"🆔Айди: {user_id}\n")
         return
 
