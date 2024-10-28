@@ -2,7 +2,7 @@ import telebot
 import sqlite3
 import random
 
-API_TOKEN = 'YOUR_API_TOKEN'  # Замените на свой токен
+API_TOKEN = '7994365938:AAGHSzJZ1Vp8Hl8SKNeIecfre3wLMvnTR3s'  # Замените на свой токен
 ADMIN_ID = [6321157988]
 OWNER_ID = [797141384]
 VOLUNTEER_ID = []
