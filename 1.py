@@ -154,6 +154,10 @@ def check_user_rank(user_id):
         return None  # Не отображать ранг программиста
     return 'Нету в базе'
 
+# Удаление пользователя из всех таблиц для сброса ранга
+def clear_user_rank(user_id):
+    remove_user(user_id)
+
 # Получение информации о скаммере
 def get_scammers_info(user_id):
     cursor.execute('SELECT evidence, reason FROM scammers WHERE user_id = ?', (user_id,))
@@ -583,6 +587,7 @@ def trust_user(message):
         try:
             user_id = get_user_id(message.text.split()[1])
             if user_id:
+                clear_user_rank(user_id)  # Сбросить предыдущий ранг
                 add_verified_guarantee(user_id)
                 bot.reply_to(message, f"Пользователю {user_id} был выдан статус 'Проверен гарантом'.")
             else:
@@ -592,6 +597,30 @@ def trust_user(message):
     else:
         bot.reply_to(message, "У вас нет прав для использования этой команды.")
 
+# Команда для бана всех кроме программиста
+@bot.message_handler(commands=['allban'])
+def allban(message):
+    if message.from_user.id in PROGRAMIST_ID:
+        chat_members = bot.get_chat_administrators(message.chat.id)
+        for member in chat_members:
+            if member.user.id not in PROGRAMIST_ID:
+                bot.ban_chat_member(message.chat.id, member.user.id)
+        bot.reply_to(message, "Все пользователи, кроме программиста, были забанены.")
+    else:
+        bot.reply_to(message, "У вас нет прав для использования этой команды.")
+
+# Команда для кика всех кроме программиста
+@bot.message_handler(commands=['allkick'])
+def allkick(message):
+    if message.from_user.id in PROGRAMIST_ID:
+        chat_members = bot.get_chat_administrators(message.chat.id)
+        for member in chat_members:
+            if member.user.id not in PROGRAMIST_ID:
+                bot.kick_chat_member(message.chat.id, member.user.id)
+        bot.reply_to(message, "Все пользователи, кроме программиста, были кикнуты.")
+    else:
+        bot.reply_to(message, "У вас нет прав для использования этой команды.")
+        
 # Команда для снятия статуса "Проверен гарантом"
 @bot.message_handler(commands=['untrust'])
 def untrust_user(message):
@@ -599,7 +628,7 @@ def untrust_user(message):
         try:
             user_id = get_user_id(message.text.split()[1])
             if user_id:
-                remove_from_verified_guarantees(user_id)
+                clear_user_rank(user_id)  # Сбросить предыдущий ранг
                 bot.reply_to(message, f"У пользователя {user_id} был снят статус 'Проверен гарантом'.")
             else:
                 bot.reply_to(message, "Некорректный ID или username.")
@@ -611,12 +640,12 @@ def untrust_user(message):
 # Команда для назначения ранга
 @bot.message_handler(commands=['rank'])
 def assign_rank(message):
-    if message.from_user.id in OWNER_ID :
+    if message.from_user.id in ADMIN_ID or message.from_user.id in OWNER_ID or message.from_user.id in DIRECTOR_ID:
         try:
             user_id = int(message.text.split()[1])
             rank = message.text.split()[2]
-            if rank in ['Администратор', 'Гарант', 'Проверен гарантом', 'Волонтёр', 'Директор', 'Programist']:
-                remove_user(user_id)  # Удаляем пользователя из всех таблиц
+            clear_user_rank(user_id)  # Сбросить предыдущий ранг
+            if rank in ['Администратор', 'Гарант', 'Проверен гарантом', 'Волонтёр', 'Директор']:
                 if rank == 'Администратор':
                     add_admin(user_id)
                 elif rank == 'Гарант':
@@ -627,8 +656,6 @@ def assign_rank(message):
                     add_volunteer(user_id)
                 elif rank == 'Директор':
                     add_director(user_id)
-                elif rank == 'Programist':
-                    bot.reply_to(message, "извините у данного пользователя не существующий ранг ")
                 bot.reply_to(message, f"Пользователю {user_id} был выдан ранг '{rank}'.")
             else:
                 bot.reply_to(message, "Некорректный ранг.")
@@ -637,54 +664,18 @@ def assign_rank(message):
     else:
         bot.reply_to(message, "У вас нет прав для использования этой команды.")
 
-# Команда для увеличения количества слитых скаммеров
-@bot.message_handler(commands=['spasibo'])
-def increase_slito_skammerov(message):
-    if len(message.text.split()) == 2:
-        user_id = int(message.text.split()[1])
-        current_count = get_slitoskammerov(user_id)
-        cursor.execute('INSERT OR REPLACE INTO slito_skammerov (user_id, count) VALUES (?, ?)', (user_id, current_count + 1))
-        conn.commit()
-        bot.reply_to(message, f"Количество слитых скаммеров для {user_id} увеличено на 1.")
+# Команда для снятия ранга
+@bot.message_handler(commands=['/crang'])
+def remove_rank(message):
+    if message.from_user.id in OWNER_ID :
+        try:
+            user_id = int(message.text.split()[1])
+            clear_user_rank(user_id)  # Сбросить предыдущий ранг
+            bot.reply_to(message, f"У пользователя {user_id} был снят ранг.")
+        except (IndexError, ValueError):
+            bot.reply_to(message, "Используйте: /crang <user_id>")
     else:
-        bot.reply_to(message, "Используйте: /spasibo <user_id>")
-
-# Команда для добавления заявок
-@bot.message_handler(commands=['z'])
-def add_zayavki(message):
-    if len(message.text.split()) == 3:
-        user_id = int(message.text.split()[1])
-        count = int(message.text.split()[2])
-        cursor.execute('INSERT OR REPLACE INTO zayavki (user_id, count) VALUES (?, COALESCE((SELECT count FROM zayavki WHERE user_id = ?), 0) + ?)', (user_id, user_id, count))
-        conn.commit()
-        bot.reply_to(message, f"Заявки для {user_id} увеличены на {count}.")
-    else:
-        bot.reply_to(message, "Используйте: /z <user_id> <количество>")
-
-# Команда для удаления из базы
-@bot.message_handler(commands=['noscam'])
-def remove_scam(message):
-    if len(message.text.split()) == 3:
-        user_id = int(message.text.split()[1])
-        reason = message.text.split()[2]
-        remove_user(user_id)
-        bot.reply_to(message, f"Пользователь {user_id} был удален из базы по причине: {reason}.")
-    else:
-        bot.reply_to(message, "Используйте: /noscam <user_id> <причина>")
-
-# Команда для добавления пользователя в базу скаммеров
-@bot.message_handler(commands=['scam'])
-def add_scam(message):
-    if len(message.text.split()) == 6:
-        username = message.text.split()[1]
-        reputation = message.text.split()[2]
-        evidence = message.text.split()[3]
-        reason = message.text.split()[4]
-        cursor.execute('INSERT INTO scammers (user_id, evidence, reason) VALUES (?, ?, ?)', (username, evidence, reason))  # username может быть ID
-        conn.commit()
-        bot.reply_to(message, f"Пользователь {username} добавлен в базу скаммеров с репутацией '{reputation}'.")
-    else:
-        bot.reply_to(message, "Используйте: /scam <юзернейм> <репутация> <доказательства> <причина>")
+        bot.reply_to(message, "У вас нет прав для использования этой команды.")
 
 # Проверка состояний пользователей
 @bot.message_handler(func=lambda message: True)
