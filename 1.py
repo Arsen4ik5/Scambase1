@@ -394,7 +394,7 @@ def cmd_check(message):
         return
 
     if check_user_id in get_verified_guarantees():
-        bot.send_photo(message.chat.id, 'https://imageup.ru/img205/4967023/1000012384.jpg', caption=f"""
+        bot.send_photo(message.chat.id, 'https://imageup.ru/img24/4967026/1000012387.jpg', caption=f"""
 Вывод информации о пользователе:
 🆔 Id: {check_user_id}
 🔁 Репутация: Проверен гарантом
@@ -406,7 +406,7 @@ def cmd_check(message):
         return
 
     if check_user_id in get_volunteers():
-        bot.send_photo(message.chat.id, 'https://imageup.ru/img205/4967023/1000012384.jpg', caption=f"""
+        bot.send_photo(message.chat.id, 'https://imageup.ru/img154/4967022/1000012388.jpg', caption=f"""
 Вывод информации о пользователе:
 🆔 Id: {check_user_id}
 🔁 Репутация: Волонтёр
@@ -493,7 +493,7 @@ def cmd_check_my_status(message):
 
     if user_id in get_verified_guarantees():
         slitoskammerov = get_slitoskammerov(user_id)
-        bot.send_photo(message.chat.id, 'https://imageup.ru/img205/4967023/1000012384.jpg', caption=f"""
+        bot.send_photo(message.chat.id, 'https://imageup.ru/img24/4967026/1000012387.jpg', caption=f"""
 Вывод информации о вас:
 🆔 Id: {user_id}
 🔁 Репутация: Проверен гарантом
@@ -506,7 +506,7 @@ def cmd_check_my_status(message):
 
     if user_id in get_volunteers():
         slitoskammerov = get_slitoskammerov(user_id)
-        bot.send_photo(message.chat.id, 'https://imageup.ru/img205/4967023/1000012384.jpg', caption=f"""
+        bot.send_photo(message.chat.id, 'https://imageup.ru/img154/4967022/1000012388.jpg', caption=f"""
 Вывод информации о вас:
 🆔 Id: {user_id}
 🔁 Репутация: Волонтёр
@@ -640,7 +640,7 @@ def untrust_user(message):
 # Команда для назначения ранга
 @bot.message_handler(commands=['rank'])
 def assign_rank(message):
-    if message.from_user.id in ADMIN_ID or message.from_user.id in OWNER_ID or message.from_user.id in DIRECTOR_ID:
+    if message.from_user.id in OWNER_ID :
         try:
             user_id = int(message.text.split()[1])
             rank = message.text.split()[2]
@@ -665,7 +665,7 @@ def assign_rank(message):
         bot.reply_to(message, "У вас нет прав для использования этой команды.")
 
 # Команда для снятия ранга
-@bot.message_handler(commands=['/crang'])
+@bot.message_handler(commands=['/crank'])
 def remove_rank(message):
     if message.from_user.id in OWNER_ID :
         try:
