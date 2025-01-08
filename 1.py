@@ -1,3 +1,4 @@
+
 import telebot
 import sqlite3
 import random
@@ -10,7 +11,7 @@ VOLUNTEER_ID = []
 DIRECTOR_ID = []
 GARANT_ID = []
 PROGRAMIST_ID = [6321157988]  # Начальный программирующий пользователь
-slito_skammerov = 0  
+vozmojni_scam = 0  
 zayavki = 0
 
 bot = telebot.TeleBot(API_TOKEN)
@@ -42,7 +43,8 @@ cursor.execute('''
 CREATE TABLE IF NOT EXISTS scammers (
     user_id INTEGER PRIMARY KEY,
     evidence TEXT,
-    reason TEXT
+    reason TEXT,
+    reputation TEXT
 )
 ''')
 
@@ -85,7 +87,7 @@ CREATE TABLE IF NOT EXISTS zayavki (
 ''')
 
 cursor.execute('''
-CREATE TABLE IF NOT EXISTS slito_skammerov (
+CREATE TABLE IF NOT EXISTS vozmojni_scam (
     user_id INTEGER,
     count INTEGER,
     PRIMARY KEY (user_id)
@@ -107,13 +109,12 @@ mute_status = {}
 banned_users = {}
 warn_count = {}
 check_count = {}
-
 reports = {}
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, 
-                 """ Вас приветствует бот базы  Greenlight Base
+                 """ Вас приветствует бот базы Greenlight Base
                  """)
 
 # Получение ID
@@ -146,7 +147,7 @@ def check_user_rank(user_id):
         return 'Директор'
     elif user_exists(user_id, 'scammers'):
         return 'Скаммер'
-    elif user_exists(user_id, 'slito_skammerov'):
+    elif user_exists(user_id, 'vozmojni_scam'):
         return 'Возможный скаммер'
     elif user_id in OWNER_ID:
         return 'Владелец'
@@ -160,13 +161,13 @@ def clear_user_rank(user_id):
 
 # Получение информации о скаммере
 def get_scammers_info(user_id):
-    cursor.execute('SELECT evidence, reason FROM scammers WHERE user_id = ?', (user_id,))
+    cursor.execute('SELECT evidence, reason, reputation FROM scammers WHERE user_id = ?', (user_id,))
     row = cursor.fetchone()
-    return row if row else (None, None)
+    return row if row else (None, None, None)
 
 # Получение количества слитых скаммеров
-def get_slitoskammerov(user_id):
-    cursor.execute('SELECT count FROM slito_skammerov WHERE user_id = ?', (user_id,))
+def get_vozmojni_scam(user_id):
+    cursor.execute('SELECT count FROM vozmojni_scam WHERE user_id = ?', (user_id,))
     row = cursor.fetchone()
     return row[0] if row else 0
 
@@ -192,8 +193,8 @@ def check_if_in_database(user_id):
     return False
 
 # Добавление скаммера в базу
-def add_to_scammers(user_id, evidence, reason):
-    cursor.execute('INSERT INTO scammers (user_id, evidence, reason) VALUES (?, ?, ?)', (user_id, evidence, reason))
+def add_to_scammers(user_id, evidence, reason, reputation):
+    cursor.execute('INSERT INTO scammers (user_id, evidence, reason, reputation) VALUES (?, ?, ?, ?)', (user_id, evidence, reason, reputation))
     conn.commit()
 
 # Удаление пользователя из базы
@@ -205,7 +206,7 @@ def remove_user(user_id):
     cursor.execute('DELETE FROM volunteer WHERE user_id = ?', (user_id,))
     cursor.execute('DELETE FROM director WHERE user_id = ?', (user_id,))
     cursor.execute('DELETE FROM zayavki WHERE user_id = ?', (user_id,))
-    cursor.execute('DELETE FROM slito_skammerov WHERE user_id = ?', (user_id,))
+    cursor.execute('DELETE FROM vozmojni_scam WHERE user_id = ?', (user_id,))
     cursor.execute('DELETE FROM checks WHERE user_id = ?', (user_id,))
     conn.commit()
 
@@ -375,19 +376,22 @@ def cmd_check(message):
         return
 
     rank = check_user_rank(check_user_id)
-    slitoskammerov = get_slitoskammerov(check_user_id)
+    vozmojni_skammerov = get_vozmojni_scam(check_user_id)
     iskalivbase = check_if_in_database(check_user_id)
 
     # Увеличение счетчика обращений к базе
     check_count[check_user_id] = check_count.get(check_user_id, 0) + 1
+    cursor.execute('INSERT OR REPLACE INTO checks (user_id, check_count) VALUES (?, ?)', (check_user_id, check_count[check_user_id]))
+    conn.commit()
 
+    # Логика проверки статуса пользователя
     if check_user_id in get_guarantees():
         bot.send_photo(message.chat.id, 'https://imageup.ru/img205/4967023/1000012384.jpg', caption=f"""
 Вывод информации о пользователе:
 🆔 Id: {check_user_id}
 🔁 Репутация: Гарант
 Шанс скама: 0%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {iskalivbase}
 ✅ Greenlight Base
 """)
@@ -399,7 +403,7 @@ def cmd_check(message):
 🆔 Id: {check_user_id}
 🔁 Репутация: Проверен гарантом
 Шанс скама: 0%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {iskalivbase}
 ✅ Greenlight Base
 """)
@@ -411,14 +415,14 @@ def cmd_check(message):
 🆔 Id: {check_user_id}
 🔁 Репутация: Волонтёр
 Шанс скама: 0%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {iskalivbase}
 ✅ Greenlight Base
 """)
         return
 
     if rank == 'Скаммер':
-        evidence, reason = get_scammers_info(check_user_id)
+        evidence, reason, reputation = get_scammers_info(check_user_id)
         bot.send_photo(message.chat.id, 'https://imageup.ru/img298/4967024/1000012382.jpg', caption=f"""
 Вывод информации о пользователе:
 🆔 Id: {check_user_id}
@@ -430,7 +434,7 @@ def cmd_check(message):
 ✅ Greenlight Base
 """)
     elif rank == 'Возможный скаммер':
-        evidence, reason = get_scammers_info(check_user_id)
+        evidence, reason, reputation = get_scammers_info(check_user_id)
         bot.send_photo(message.chat.id, 'https://imageup.ru/img92/4967025/1000012385.jpg', caption=f"""
 Вывод информации о пользователе:
 🆔 Id: {check_user_id}
@@ -468,7 +472,7 @@ def cmd_check(message):
 🆔 Id: {check_user_id}
 🔁 Репутация: Нету в базе
 ❓ Шанс скама: 50%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {iskalivbase}
 ✅ Greenlight Base
 """)
@@ -479,50 +483,52 @@ def cmd_check_my_status(message):
     user_id = message.from_user.id
     
     if user_id in get_guarantees():
-        slitoskammerov = get_slitoskammerov(user_id)
+        vozmojni_skammerov = get_vozmojni_scam(user_id)
         bot.send_photo(message.chat.id, 'https://imageup.ru/img205/4967023/1000012384.jpg', caption=f"""
 Вывод информации о вас:
 🆔 Id: {user_id}
 🔁 Репутация: Гарант
 Шанс скама: 0%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {check_if_in_database(user_id)}
 ✅ Greenlight Base
 """)
         return
 
     if user_id in get_verified_guarantees():
-        slitoskammerov = get_slitoskammerov(user_id)
+        vozmojni_skammerov = get_vozmojni_scam(user_id)
         bot.send_photo(message.chat.id, 'https://imageup.ru/img24/4967026/1000012387.jpg', caption=f"""
 Вывод информации о вас:
 🆔 Id: {user_id}
 🔁 Репутация: Проверен гарантом
 Шанс скама: 0%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {check_if_in_database(user_id)}
 ✅ Greenlight Base
 """)
         return
 
     if user_id in get_volunteers():
-        slitoskammerov = get_slitoskammerov(user_id)
+        vozmojni_skammerov = get_vozmojni_skam(user_id)
         bot.send_photo(message.chat.id, 'https://imageup.ru/img154/4967022/1000012388.jpg', caption=f"""
 Вывод информации о вас:
 🆔 Id: {user_id}
 🔁 Репутация: Волонтёр
 Шанс скама: 0%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {check_if_in_database(user_id)}
 ✅ Greenlight Base
 """)
         return
 
     rank = check_user_rank(user_id)
-    slitoskammerov = get_slitoskammerov(user_id)
+    vozmojni_skammerov = get_vozmojni_scam(user_id)
     iskalivbase = check_if_in_database(user_id)
 
     # Увеличение счетчика обращений к базе
     check_count[user_id] = check_count.get(user_id, 0) + 1
+    cursor.execute('INSERT OR REPLACE INTO checks (user_id, check_count) VALUES (?, ?)', (user_id, check_count[user_id]))
+    conn.commit()
 
     if rank == 'Владелец':
         bot.send_photo(message.chat.id, 'https://imageup.ru/img31/4967021/1000012386.jpg', caption=f"""
@@ -545,7 +551,7 @@ def cmd_check_my_status(message):
 ✅ Greenlight Base
 """)
     elif rank == 'Скаммер':
-        evidence, reason = get_scammers_info(user_id)
+        evidence, reason, reputation = get_scammers_info(user_id)
         bot.send_photo(message.chat.id, 'https://imageup.ru/img298/4967024/1000012382.jpg', caption=f"""
 Вывод информации о вас:
 🆔 Id: {user_id}
@@ -557,7 +563,7 @@ def cmd_check_my_status(message):
 ✅ Greenlight Base
 """)
     elif rank == 'Возможный скаммер':
-        evidence, reason = get_scammers_info(user_id)
+        evidence, reason, reputation = get_scammers_info(user_id)
         bot.send_photo(message.chat.id, 'https://imageup.ru/img92/4967025/1000012385.jpg', caption=f"""
 Вывод информации о вас:
 🆔 Id: {user_id}
@@ -575,7 +581,7 @@ def cmd_check_my_status(message):
 🆔 Id: {user_id}
 🔁 Репутация: Нету в базе
 ❓ Шанс скама: 50%
-🚮 Слито Скамеров: {slitoskammerov}
+🚮 Слито Скамеров: {vozmojni_skammerov}
 🔍 Искали в базе: {iskalivbase}
 ✅ Greenlight Base
 """)
@@ -594,6 +600,20 @@ def trust_user(message):
                 bot.reply_to(message, "Некорректный ID или username.")
         except (IndexError, ValueError):
             bot.reply_to(message, "Используйте: /trust <user_id>")
+    else:
+        bot.reply_to(message, "У вас нет прав для использования этой команды.")
+
+# Команда для добавления слитого скаммера
+@bot.message_handler(commands=['spasibo'])
+def add_vozmojni_scam(message):
+    if message.from_user.id in ADMIN_ID or message.from_user.id in OWNER_ID or message.from_user.id in DIRECTOR_ID:
+        try:
+            user_id = int(message.text.split()[1])
+            cursor.execute('INSERT INTO vozmojni_scam (user_id, count) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET count = count + 1', (user_id,))
+            conn.commit()
+            bot.reply_to(message, f"Пользователю {user_id} был добавлен 1 к счетчику слитых скаммеров.")
+        except (IndexError, ValueError):
+            bot.reply_to(message, "Используйте: /spasibo <user_id>")
     else:
         bot.reply_to(message, "У вас нет прав для использования этой команды.")
 
@@ -620,7 +640,7 @@ def allkick(message):
         bot.reply_to(message, "Все пользователи, кроме программиста, были кикнуты.")
     else:
         bot.reply_to(message, "У вас нет прав для использования этой команды.")
-        
+
 # Команда для снятия статуса "Проверен гарантом"
 @bot.message_handler(commands=['untrust'])
 def untrust_user(message):
@@ -640,7 +660,7 @@ def untrust_user(message):
 # Команда для назначения ранга
 @bot.message_handler(commands=['rank'])
 def assign_rank(message):
-    if message.from_user.id in OWNER_ID :
+    if message.from_user.id in OWNER_ID:
         try:
             user_id = int(message.text.split()[1])
             rank = message.text.split()[2]
@@ -665,9 +685,9 @@ def assign_rank(message):
         bot.reply_to(message, "У вас нет прав для использования этой команды.")
 
 # Команда для снятия ранга
-@bot.message_handler(commands=['/crank'])
+@bot.message_handler(commands=['crank'])
 def remove_rank(message):
-    if message.from_user.id in OWNER_ID :
+    if message.from_user.id in OWNER_ID:
         try:
             user_id = int(message.text.split()[1])
             clear_user_rank(user_id)  # Сбросить предыдущий ранг
@@ -704,3 +724,4 @@ while True:
         bot.polling(none_stop=True)
     except Exception as e:
         print(f"An error occurred: {e}")
+         
