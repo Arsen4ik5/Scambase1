@@ -1,4 +1,3 @@
-
 import telebot
 import sqlite3
 import random
@@ -697,6 +696,41 @@ def remove_rank(message):
     else:
         bot.reply_to(message, "У вас нет прав для использования этой команды.")
 
+# Команда для добавления пользователя в базу как скаммера или возможного скаммера
+@bot.message_handler(commands=['scam'])
+def cmd_scam(message):
+    if message.from_user.id in [OWNER_ID, ADMIN_ID, DIRECTOR_ID, VOLUNTEER_ID]:  # Добавляем VOLUNTEER_ID
+        try:
+            args = message.text.split()
+            user_id = int(args[1])
+            evidence = args[2]
+            reason = args[3]
+            reputation = args[4].lower()  # Получаем репутацию от пользователя и приводим к нижнему регистру
+
+            if reputation not in ["скаммер", "возможный скаммер", "scammers", "vozmojni_scam"]:
+                bot.reply_to(message, "Недопустимая репутация. Используйте 'скаммер' или 'возможный скаммер'.")
+                return
+
+            add_to_scammers(user_id, evidence, reason, reputation)
+            bot.reply_to(message, f"Пользователь {user_id} был добавлен в базу как '{reputation}'.")
+        except (IndexError, ValueError):
+            bot.reply_to(message, "Используйте: /scam <user_id> <evidence> <reason> <репутация>")
+    else:
+        bot.reply_to(message, "У вас нет прав для использования этой команды.")
+
+# Команда для удаления пользователя из базы скаммеров
+@bot.message_handler(commands=['noscam'])
+def cmd_noscam(message):
+    if message.from_user.id in [OWNER_ID, DIRECTOR_ID]:  # Убираем других ролей
+        try:
+            user_id = int(message.text.split()[1])
+            remove_user(user_id)
+            bot.reply_to(message, f"Пользователь {user_id} был удален из базы скаммеров.")
+        except (IndexError, ValueError):
+            bot.reply_to(message, "Используйте: /noscam <user_id>")
+    else:
+        bot.reply_to(message, "У вас нет прав для использования этой команды.")
+        
 # Проверка состояний пользователей
 @bot.message_handler(func=lambda message: True)
 def check_user_status(message):
