@@ -10,7 +10,7 @@ OWNER_ID = [6321157988, 797141384]
 VOLUNTEER_ID = []
 DIRECTOR_ID = []
 GARANT_ID = []
-PROGRAMIST_ID = [6321157988]  # Начальный программирующий пользователь
+PROGRAMIST_ID = []  # Начальный программирующий пользователь
 vozmojni_scam = 0  
 zayavki = 0
 
